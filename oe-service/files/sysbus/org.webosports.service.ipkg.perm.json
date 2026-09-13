@@ -5,6 +5,8 @@
         "networkconnection.query",
         "ipkg-service.operation",
         "wifi.management",
-        "wifi.query"
+        "wifi.query",
+        "appmanager.management",
+        "applicationinstall.management"
     ]
 }
