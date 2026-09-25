@@ -28,13 +28,14 @@ enyo.kind({
         {
             kind: "Scroller",
             classes: "enyo-fill",
-            style: "padding: 10px;",
             horizontal: "hidden",
             touch: true,
             fit: true,
             components: [
                 {
-                    style: "padding: 0px 0px 70px 0px; height: 100%; margin: 0px 2px; display: block; color: white",
+                    //padding here, not on the scroller: content narrower than the scroller
+                    //makes it slide sideways while dragging.
+                    style: "padding: 10px 12px 80px 12px; display: block; color: white",
                     fit: true,
                     components: [
                         {tag: "div", classes: "webosstyle-groupbox", components: [
