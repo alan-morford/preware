@@ -14,6 +14,8 @@ enyo.kind({
     scrim: true,
     scrimWhenModal: false,
     ipkOperation: false,
+    //another app started Preware just for this install: after it, Close closes Preware.
+    closesApp: false,
     components: [
         {
             kind: "enyo.Panels",
@@ -225,6 +227,10 @@ enyo.kind({
     },
     backFromSpinner: function (inSender, inEvent) {
         if (!this.ipkOperation) {
+            if (inSender === this.$.spinnerBackBtn && this.closesApp) {
+                this.closePopup(); //closes Preware too (App.installDialogHidden)
+                return;
+            }
             this.$.Panels.setIndex(this.selectPanelIndex);
         }
     },
@@ -326,6 +332,7 @@ enyo.kind({
         this.$.message.setContent(this.originalMessage + "<br /><bold>Done:</bold> " + inEvent.message);
         this.ipkOperation = false;
         this.$.spinner.hide();
+        this.$.spinnerBackBtn.setContent(this.closesApp ? $L("Close") : $L("Back"));
         this.$.spinnerBackBtn.show();
     },
     

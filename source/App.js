@@ -85,6 +85,7 @@ enyo.kind({
     },
     handleLaunchInstallRequest: function (inSender, inEvent) {
         //enyo.info("Handling launch with install request on: " + this.name + " for " + inEvent.params);
+        this.$.InstallPackageDialog.closesApp = !!this.$.AppPanels.launchedForInstall;
         this.showInstallPackageDialog();
         this.$.InstallPackageDialog.doInstall(inEvent.params);
     },
