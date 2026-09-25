@@ -5,6 +5,17 @@ enyo.singleton({
     name: "UpdateFeeds",
     // required ipkgservice
     ipkgServiceVersion: 14,
+    // first ipkgservice whose downloadFeed can be called for several feeds at once.
+    // older ones build their replies in shared buffers, so asking them for more
+    // than one feed at a time corrupts the responses.
+    parallelServiceVersion: 18,
+    serviceApiVersion: 0,
+    // how many feeds are downloaded at the same time. Downloads spend most of their
+    // time waiting on the network, so running several at once hides most of that wait.
+    maxParallelDownloads: 6,
+    // least time between status repaints (ms), the progress of several downloads
+    // arrives faster than it is useful to redraw.
+    progressRedrawMs: 400,
     downloaded: false,
     onlyLoad: false,
     timeouts: [],
@@ -32,8 +43,8 @@ enyo.singleton({
             this.parseFeeds(inSender, inEvent);
         } else {
             if (this.feeds.length) {
-                this.log("Starting download of first feed.");
-                this.downloadFeedRequest(0);
+                this.log("Starting feed downloads.");
+                this.downloadFeeds();
             } else {
                 this.log("Not downloading feeds, length: " + this.feeds.length);
                 this.downloaded = true;
@@ -191,6 +202,8 @@ enyo.singleton({
                     this.fatal(payload.errorText);
                 }
             } else {
+                // remember this so we know whether feeds can be downloaded in parallel
+                this.serviceApiVersion = payload.apiVersion ? parseInt(payload.apiVersion, 10) : 0;
                 if (payload.apiVersion && payload.apiVersion < this.ipkgServiceVersion) {
                     // this is if this version is too old for the version number stuff
                     this.fatal($L("The service version is too old. First try rebooting your device, or reinstall Preware and try again."));
@@ -211,48 +224,102 @@ enyo.singleton({
         enyo.Signals.send("onPackagesStatusUpdate", {message: message, error: true});
     },
 
+    //download all feeds, several at once if the service supports it.
+    downloadFeeds: function () {
+        var i, atOnce = this.serviceApiVersion >= this.parallelServiceVersion ? this.maxParallelDownloads : 1;
+        this.downloadActive = {};
+        this.downloadNext = 0;
+        this.downloadDone = 0;
+        this.downloadStatus = "";
+        this.downloadStatusFeed = "";
+        this.lastProgressDraw = 0;
+        this.error = false;
+
+        atOnce = Math.min(atOnce, this.feeds.length);
+        for (i = 0; i < atOnce; i += 1) {
+            this.downloadFeedRequest(this.downloadNext);
+            this.downloadNext += 1;
+        }
+    },
+    //show progress, naming only the feed we last heard from so the message keeps its size.
+    displayDownloadProgress: function (force) {
+        var num, name = this.downloadStatusFeed, now = Date.now(), msg;
+        if (!force && this.lastProgressDraw && (now - this.lastProgressDraw) < this.progressRedrawMs) {
+            return;
+        }
+        this.lastProgressDraw = now;
+
+        if (!name) {
+            for (num in this.downloadActive) {
+                if (this.downloadActive.hasOwnProperty(num)) {
+                    name = this.downloadActive[num].name;
+                    break;
+                }
+            }
+        }
+        msg = $L("<strong>Downloading Feed Information</strong><br>") +
+            this.downloadDone + $L(" of ") + this.feeds.length + "<br>" +
+            (name || "&nbsp;") + "<br>" + (this.downloadStatus || "&nbsp;");
+        enyo.Signals.send("onPackagesStatusUpdate", {message: msg});
+    },
     //trigger update of one feed:
     downloadFeedRequest: function (num) {
-        // update display
-        enyo.Signals.send("onPackagesStatusUpdate", {message: $L("<strong>Downloading Feed Information</strong><br>") + this.feeds[num].name});
+        this.downloadActive[num] = this.feeds[num];
+        this.displayDownloadProgress(true);
 
-        // subscribe to new feed
         preware.IPKGService.downloadFeed(this.downloadFeedResponse.bind(this, num),
                                         this.feeds[num].gzipped, this.feeds[num].name, this.feeds[num].url);
     },
     downloadFeedResponse: function (num, payload) {
-        var goToNextFeed = function () {
-            num = num + 1;
-            if (num < this.feeds.length) {
-                // start next
-                this.downloadFeedRequest(num);
-            } else {
-                // we're done
-                var msg = "<strong>" + $L("Done Downloading!") + "</strong>";
-                if (this.error) {
-                    msg += "<br>" + $L("Some feeds failed to download.");
-                    setTimeout(this.loadFeeds.bind(this), 5000);
-                } else {
-                    // well updating looks to have finished, lets log the date:
-                    preware.PrefCookie.put('lastUpdate', Math.round(Date.now() / 1000));
-                    this.loadFeeds();
-                }
-                enyo.Signals.send("onPackagesStatusUpdate", {message: msg});
-
-                this.downloaded = true;
-            }
-        };
+        // this feed is already finished with, ignore late payloads
+        if (!this.downloadActive[num]) {
+            return;
+        }
 
         if (!payload.returnValue || payload.stage === "failed") {
-            this.log(payload.errorText + '<br>' + (payload.stdErr ? payload.stdErr.join("<br>") : ""));
+            this.log(this.feeds[num].name + ": " + payload.errorText + '<br>' + (payload.stdErr ? payload.stdErr.join("<br>") : ""));
             this.error = true;
-
-            goToNextFeed.call(this);
+            this.downloadFeedFinished(num);
         } else if (payload.stage === "status") {
-            enyo.Signals.send("onPackagesStatusUpdate", {message: $L("<strong>Downloading Feed Information</strong><br>") + this.feeds[num].name + "<br><br>" + payload.status});
+            this.downloadStatusFeed = this.feeds[num].name;
+            this.downloadStatus = payload.status;
+            this.displayDownloadProgress();
         } else if (payload.stage === "completed") {
-            goToNextFeed.call(this);
+            this.downloadFeedFinished(num);
         }
+    },
+    downloadFeedFinished: function (num) {
+        var msg;
+        if (this.downloadStatusFeed === this.feeds[num].name) {
+            this.downloadStatusFeed = "";
+            this.downloadStatus = "";
+        }
+        delete this.downloadActive[num];
+        this.downloadDone += 1;
+
+        // start the next feed in line, if there is one
+        if (this.downloadNext < this.feeds.length) {
+            this.downloadFeedRequest(this.downloadNext);
+            this.downloadNext += 1;
+            return;
+        }
+        if (this.downloadDone < this.feeds.length) {
+            this.displayDownloadProgress(true);
+            return; // still waiting on the other downloads
+        }
+
+        // we're done
+        this.downloaded = true;
+        msg = "<strong>" + $L("Done Downloading!") + "</strong>";
+        if (this.error) {
+            msg += "<br>" + $L("Some feeds failed to download.");
+            setTimeout(this.loadFeeds.bind(this), 5000);
+        } else {
+            // well updating looks to have finished, lets log the date:
+            preware.PrefCookie.put('lastUpdate', Math.round(Date.now() / 1000));
+            this.loadFeeds();
+        }
+        enyo.Signals.send("onPackagesStatusUpdate", {message: msg});
     },
     loadFeeds: function () {
         // lets call the function to update the global list of pkgs

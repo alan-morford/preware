@@ -254,3 +254,70 @@
 	float: right;
 }
 /* End Install Package Dialog */
+/* header with a fixed-size search field (SearchHeader.js) */
+.preware-search-header {
+    position: relative;
+    overflow: hidden;
+}
+.preware-search-header-icon {
+    height: 100%;
+    margin: 0;
+}
+.preware-search-header-text {
+    position: absolute;
+    top: 4px;
+    left: 54px;
+    right: 212px;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.preware-search-header-title {
+    font-size: 21px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.preware-search-header-tagline {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.preware-search-box {
+    position: absolute !important;
+    top: 9px;
+    right: 8px;
+    width: 196px;
+    margin: 0 !important;
+    padding: 2px 4px 3px 8px !important;
+    box-sizing: border-box;
+}
+.preware-search-box > input {
+    width: 150px;
+}
+.preware-search-icon {
+    width: 24px;
+    height: 24px;
+    vertical-align: middle;
+}
+.preware-search-box-disabled {
+    opacity: 0.4;
+}
+@media (max-width: 480px) {
+    .preware-search-header-text {
+        right: 142px;
+    }
+    .preware-search-box {
+        width: 126px;
+    }
+    .preware-search-box > input {
+        width: 80px;
+    }
+}
+
+/* tapping the grabber goes back one panel */
+.preware-grabber-area {
+    display: inline-block;
+    padding: 6px 14px;
+    margin: -6px 0 -6px -8px;
+    vertical-align: middle;
+}

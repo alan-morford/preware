@@ -5,6 +5,7 @@ enyo.depends(
     "$lib/webos-lib",
     "model",
     "App.css",
+    "SearchHeader.js",
     "App.js",
     "AppPanels.js",
     "EmptyPanel.js",

@@ -6,35 +6,45 @@ enyo.singleton({
     identifier: 'palm://' + preware.Platform.serviceName(),
     log: "",
     logNum: 1,
+    //Every call gets its own request, so calls can run in parallel (e.g. several feed downloads).
+    //Subscribed calls stream the progress of one operation; they are closed when it has finished.
     doServiceCall: function (callback, method, parameters) {
-        if (this.request && this.request.getSubscribe()) {
-            this.request.cancel();
-        }
-        this.request = new enyo.ServiceRequest({
-            service: this.identifier,
-            method: method,
-            subscribe: parameters ? parameters.subscribe : false,
-            //these subscriptions only stream the result of one operation, retrying a failed
-            //call every 10s would call the callbacks again (and again...).
-            resubscribe: false
-        });
-        var generalSuccess = function (inSender, inResponse) {
+        var subscribe = parameters ? !!parameters.subscribe : false,
+            request = new enyo.ServiceRequest({
+                service: this.identifier,
+                method: method,
+                subscribe: subscribe,
+                //retrying a failed call every 10s would call the callbacks again (and again...).
+                resubscribe: false
+            }),
+            finished = function (payload) {
+                return !payload || payload.returnValue === false ||
+                    payload.stage === "completed" || payload.stage === "end" || payload.stage === "failed";
+            },
+            generalSuccess = function (inSender, inResponse) {
                 // console.log(JSON.stringify(inSender.request), "IPKService#generalSuccess: " + JSON.stringify(inResponse));
+                if (subscribe && finished(inResponse)) {
+                    request.cancel();
+                }
                 if (callback) {
                     callback(inResponse);
                 }
             },
             generalFailure = function (inSender, inError) {
                 console.error("IPKGService#generalFailure: " + JSON.stringify(inError));
+                if (subscribe) {
+                    request.cancel();
+                }
                 if (callback) {
                     callback(inError);
                 }
             };
 
         //console.log("Complete request: luna-send -n 10 " + this.identifier + "/" + method + " '" + JSON.stringify(parameters)  + "'");
-        this.request.response(generalSuccess.bind(this));
-        this.request.error(generalFailure.bind(this));
-        return this.request.go(parameters);
+        request.response(generalSuccess);
+        request.error(generalFailure);
+        request.go(parameters);
+        return request;
     },
     //true if the payload says the package manager service is not available.
     isNotRunning: function (payload) {

@@ -2,18 +2,17 @@ enyo.kind({
     name: "GrabberToolbar",
     kind: "onyx.Toolbar",
     components:[
-        {kind: "onyx.Grabber"},
-        {name: "backButton", kind: "onyx.Button", content: $L("Back"), showing: false, ontap: "backTapped"}
+        {name: "grabberArea", classes: "preware-grabber-area", ontap: "grabberTapped", components: [
+            {kind: "onyx.Grabber"}
+        ]}
     ],
     reflow: function() {
-        var narrow = enyo.Panels.isScreenNarrow(),
-            back = preware.Platform.needsBackButton();
-        this.children[0].applyStyle('visibility', narrow ? 'hidden' : 'visible');
-        this.children[0].setShowing(!(narrow && back));
-        this.$.backButton.setShowing(back);
+        //Legacy devices have no back gesture (TouchPad), so the grabber is always there to tap.
+        var visible = !enyo.Panels.isScreenNarrow() || preware.Platform.alwaysShowGrabber();
+        this.$.grabberArea.applyStyle('visibility', visible ? 'visible' : 'hidden');
     },
-    //behave like the back gesture on devices without one.
-    backTapped: function() {
+    //tapping the grabber goes back to the previous panel, like the back gesture.
+    grabberTapped: function() {
         enyo.Signals.send("onbackbutton", {preventDefault: function () {}, stopPropagation: function () {}});
         return true;
     }

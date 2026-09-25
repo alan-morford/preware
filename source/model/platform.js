@@ -10,9 +10,8 @@ enyo.singleton({
     serviceName: function () {
         return this.isLegacy ? "org.webosinternals.ipkgservice" : "org.webosports.service.ipkg";
     },
-    // The TouchPad has no gesture area, so a back button is needed (only one panel is shown at a time).
-    // Phones running legacy webOS have a gesture area, but a button does not hurt there either.
-    needsBackButton: function () {
+    // The TouchPad has no gesture area, so the toolbar grabber is always shown and tapping it goes back.
+    alwaysShowGrabber: function () {
         return this.isLegacy;
     }
 });

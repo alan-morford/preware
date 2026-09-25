@@ -37,7 +37,9 @@ enyo.kind({
             style: "width: 33.3%",
             components: [
                 {
-                    kind: "PortsSearch",
+                    name: "searchHeader",
+                    kind: "preware.SearchHeader",
+                    disabled: true,
                     onSearch: "searchChanged",
                     title: "Preware 2",
                     taglines: [
@@ -63,7 +65,7 @@ enyo.kind({
                                 {
                                     kind: "FittableRows",
                                     classes: "onyx-toolbar",
-                                    style: "width: 90%; height: 224px; margin: 10% 2.5% 2.5% 2.5%; text-align: center; border-radius: 16px;",
+                                    style: "width: 90%; height: 224px; margin: 10% auto 2.5% auto; text-align: center; border-radius: 16px;",
                                     components: [
                                         {kind: "onyx.Spinner"},
                                         {
@@ -250,6 +252,8 @@ enyo.kind({
         inEvent.preventDefault();
     },
     doReloadList: function () {
+        this.$.searchHeader.set("disabled", true);
+        this.$.searchHeader.clear();
         this.$.spinner.show();
         UpdateFeeds.startUpdateFeeds(true);
         this.$.ScrollerPanel.setIndex(0);
@@ -383,6 +387,7 @@ enyo.kind({
         this.$.spinner.setShowing(!inEvent.error);
     },
     doneLoading: function (inSender, inEvent) {
+        this.$.searchHeader.set("disabled", false);
         this.log("Done loading, num Packages: " + preware.PackagesModel.packages.length);
         this.$.packagesMenu.set("listOfEverything", preware.PackagesModel.packages);
         // so if we're inactive we know to push a scene when we return

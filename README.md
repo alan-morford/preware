@@ -40,7 +40,8 @@ Removing the original Preware removes the service; reinstall Preware 2 to get it
 
 Differences from LuneOS:
 - 3D acceleration is turned off, the TouchPad's WebKit (534.6) often did not paint the package list panel.
-- A Back button is shown in the toolbars, because the TouchPad has no gesture area.
+- The toolbar grabber is always shown and tapping it goes back one panel, because the TouchPad has no gesture area.
+- Up to 6 feeds are downloaded at the same time (service API 18 or later), like the original Preware.
 
 `./build-legacy.sh --debug` additionally bundles `debug/DebugHook.js`: relaunching the app with
 `{"pw2eval": "<js>"}` evaluates the JavaScript in the app and writes the result to the system log.
