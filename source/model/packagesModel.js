@@ -422,6 +422,39 @@ enyo.singleton({
         this.doneLoading();   // TODO: call preware.SavedPacketlist.load with doneLoading as callback
     },
 
+    //Makes names that differ only in case, spacing, punctuation or "&" / "and" one name,
+    //spelled the way most packages spell it. field: "category" or "type".
+    mergeNameVariants: function (field) {
+        var p, name, key, groups = {}, best = {}, spelling,
+            keyOf = function (n) {
+                return n.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "");
+            };
+        for (p = 0; p < this.packages.length; p += 1) {
+            name = this.packages[p][field];
+            if (name) {
+                key = keyOf(name);
+                groups[key] = groups[key] || {};
+                groups[key][name] = (groups[key][name] || 0) + 1;
+            }
+        }
+        for (key in groups) {
+            if (groups.hasOwnProperty(key)) {
+                for (spelling in groups[key]) {
+                    if (groups[key].hasOwnProperty(spelling) &&
+                            (!best[key] || groups[key][spelling] > groups[key][best[key]])) {
+                        best[key] = spelling;
+                    }
+                }
+            }
+        }
+        for (p = 0; p < this.packages.length; p += 1) {
+            name = this.packages[p][field];
+            if (name) {
+                this.packages[p][field] = best[keyOf(name)];
+            }
+        }
+    },
+
     doneLoading: function () {
         var p, f, i, justTypeObjs, sortLowerCase;
         try {
@@ -456,6 +489,10 @@ enyo.singleton({
                     this.packagesReversed[this.packages[p].pkg] = p + 1;
                 }
             }
+
+            // feeds spell some names differently ("Clocks And Timers" / "Clocks and Timers")
+            this.mergeNameVariants("category");
+            this.mergeNameVariants("type");
 
             // add package categorys to global category list
             for (p = 0; p < this.packages.length; p += 1) {
