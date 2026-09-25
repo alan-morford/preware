@@ -220,7 +220,6 @@ enyo.kind({
     handleDeviceReady: function (inSender, inEvent) {
         if (!this.fired) {
             this.fired = true;
-            UpdateFeeds.startUpdateFeeds();            
 
             //This appears to be our first opportunity to evaluate launch parameters, but they must be handled on the owner
             var launchParams = null;
@@ -231,8 +230,15 @@ enyo.kind({
             }
             var file = preware.ResourceHandler.launchFile(launchParams);
             if (file) {
+                //launched just to install a package (e.g. from an app catalog): only do that,
+                //the feeds are loaded when the install dialog is closed.
                 enyo.warn("Preware was launched with a request to install an app: " + file);
+                this.updateDeferred = true;
+                this.$.spinner.hide();
+                this.$.SpinnerText.setContent("");
                 enyo.Signals.send("onLaunchedWithInstallRequest", { params: file });
+            } else {
+                UpdateFeeds.startUpdateFeeds();
             }
         }
     },
@@ -264,7 +270,16 @@ enyo.kind({
         }
         inEvent.preventDefault();
     },
+    //load the package list if that was skipped for an install request at launch.
+    startDeferredUpdate: function () {
+        if (this.updateDeferred) {
+            this.updateDeferred = false;
+            this.$.spinner.show();
+            UpdateFeeds.startUpdateFeeds();
+        }
+    },
     doReloadList: function () {
+        this.updateDeferred = false;
         if (UpdateFeeds.isUpdating()) {
             return; //already loading.
         }

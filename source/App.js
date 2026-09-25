@@ -40,7 +40,7 @@ enyo.kind({
         {kind: "CoreNavi", fingerTracking: true},
         {name: "SettingsDialog", kind: "SettingsDialog"},
         {name: "ManageFeedsDialog", kind: "ManageFeedsDialog"},
-        {name: "InstallPackageDialog", kind: "InstallPackageDialog"},
+        {name: "InstallPackageDialog", kind: "InstallPackageDialog", onHide: "installDialogHidden"},
         {name: "RestartDialog", kind: "Preware.ChoiceDialog", title: $L("Restart Required"), onAction: "restartAccepted", onDismiss: "restartDeclined"},
         {name: "ResourceHandlerDialog", kind: "Preware.ChoiceDialog", title: $L("FileType Association"), onAction: "resourceHandlerAccepted", onDismiss: "resourceHandlerDeclined"},
         {
@@ -87,6 +87,11 @@ enyo.kind({
         //enyo.info("Handling launch with install request on: " + this.name + " for " + inEvent.params);
         this.showInstallPackageDialog();
         this.$.InstallPackageDialog.doInstall(inEvent.params);
+    },
+    installDialogHidden: function (inSender, inEvent) {
+        if (inEvent.originator === inSender) { //not a popup inside the dialog
+            this.$.AppPanels.startDeferredUpdate();
+        }
     },
     //the app was already running and got launched again, e.g. by opening an ipk from another app.
     handleRelaunch: function (inSender, inEvent) {
