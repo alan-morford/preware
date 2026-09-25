@@ -229,9 +229,10 @@ enyo.kind({
             } catch (e) {
                 this.log("Could not parse launch params: " + PalmSystem.launchParams);
             }
-            if (launchParams && launchParams.type && launchParams.type.toLowerCase() == "install" && launchParams.file) {
-                enyo.warn("Preware was launched with a request to install an app: " + launchParams.file);
-                enyo.Signals.send("onLaunchedWithInstallRequest", { params: launchParams.file });
+            var file = preware.ResourceHandler.launchFile(launchParams);
+            if (file) {
+                enyo.warn("Preware was launched with a request to install an app: " + file);
+                enyo.Signals.send("onLaunchedWithInstallRequest", { params: file });
             }
         }
     },

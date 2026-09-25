@@ -17,6 +17,7 @@ enyo.kind({
             onCoreNaviDragFinish: "handleCoreNaviDragFinish",
             onLaunchedWithInstallRequest: "handleLaunchInstallRequest",
             onPackageActionRequired: "handlePackageActionRequired",
+            onUpdateFeedsFinished: "checkResourceHandler",
             onrelaunch: "handleRelaunch"
         },
         {
@@ -41,6 +42,7 @@ enyo.kind({
         {name: "ManageFeedsDialog", kind: "ManageFeedsDialog"},
         {name: "InstallPackageDialog", kind: "InstallPackageDialog"},
         {name: "RestartDialog", kind: "Preware.ChoiceDialog", title: $L("Restart Required"), onAction: "restartAccepted", onDismiss: "restartDeclined"},
+        {name: "ResourceHandlerDialog", kind: "Preware.ChoiceDialog", title: $L("FileType Association"), onAction: "resourceHandlerAccepted", onDismiss: "resourceHandlerDeclined"},
         {
             kind: "AppMenu", //onSelect: "appMenuItemSelected",
             style: "overflow: hidden;",
@@ -88,9 +90,44 @@ enyo.kind({
     },
     //the app was already running and got launched again, e.g. by opening an ipk from another app.
     handleRelaunch: function (inSender, inEvent) {
-        if (inEvent && inEvent.type && inEvent.type.toLowerCase() === "install" && inEvent.file) {
-            this.handleLaunchInstallRequest(this, {params: inEvent.file});
+        var file = preware.ResourceHandler.launchFile(inEvent);
+        if (file) {
+            this.handleLaunchInstallRequest(this, {params: file});
         }
+    },
+    //offer to make Preware the app that opens .ipk files (once per launch, legacy webOS).
+    checkResourceHandler: function () {
+        if (this.resourceHandlerChecked || !preware.PrefCookie.get().resourceHandlerCheck) {
+            return;
+        }
+        this.resourceHandlerChecked = true;
+        preware.ResourceHandler.check(function (result) {
+            if (!result) {
+                return;
+            }
+            if (result.action === "add") {
+                this.$.ResourceHandlerDialog.set("body", $L("Preware 2 is not set up to open application packages (.ipk files) from the browser, email or app catalogs.<br><br><b>Would you like Preware 2 to open .ipk files?</b>"));
+            } else {
+                this.$.ResourceHandlerDialog.set("body", $L("Preware 2 is not the default application for .ipk files.<br>Current default: ") + result.active +
+                    $L("<br><br><b>Would you like to make Preware 2 the default application?</b>"));
+            }
+            this.$.ResourceHandlerDialog.show();
+        }.bind(this));
+    },
+    resourceHandlerAccepted: function () {
+        this.$.ResourceHandlerDialog.hide();
+        preware.ResourceHandler.fix(function (ok) {
+            if (!ok) {
+                enyo.error("Could not register Preware 2 as handler for .ipk files.");
+            }
+        });
+        return true;
+    },
+    //don't ask again, can be turned back on with "Check .ipk association" in the preferences.
+    resourceHandlerDeclined: function () {
+        this.$.ResourceHandlerDialog.hide();
+        preware.PrefCookie.put("resourceHandlerCheck", false);
+        return true;
     },
     //a package needs luna/java/device restart after install/update/removal.
     handlePackageActionRequired: function (inSender, inEvent) {

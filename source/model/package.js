@@ -8,5 +8,6 @@ enyo.depends(
     "packageModel.js",
     "packagesModel.js",
     "palmProfile.js",
+    "resourceHandler.js",
     "typeConditions.js"
 );

@@ -161,6 +161,14 @@ enyo.singleton({
         };
         return this.doServiceCall(callback, "remove", params);
     },
+    //register an app as handler for a file extension / mime type (legacy webOS).
+    addResource: function (callback, extension, mimeType, appId) {
+        return this.doServiceCall(callback, "addResource", {extension: extension, mimeType: mimeType, appId: appId});
+    },
+    //make the handler with this index the default one for mimeType (legacy webOS).
+    swapResource: function (callback, mimeType, index) {
+        return this.doServiceCall(callback, "swapResource", {mimeType: mimeType, index: index});
+    },
     //the service exits and is started again (by upstart / dbus).
     restart: function (callback) {
         return this.doServiceCall(callback, "restart");

@@ -38,7 +38,13 @@ On install, `legacy/pmPostInstall.script` runs as root and
   keeping feeds that were disabled disabled.
 
 `legacy/pmPreRemove.script` removes the service again, unless the original Preware is still installed.
-Removing the original Preware removes the service; reinstall Preware 2 to get it back.
+Removing the original Preware also removes the shared service. The `preware2-service-check` upstart job
+installed by Preware 2 puts it back at the next boot (`legacy/bin/install-service.sh`).
+
+At the first launch (and every launch while "Check .ipk association" is on in the preferences)
+Preware 2 offers to register itself as the application that opens `.ipk` files
+(`source/model/resourceHandler.js`, like the original Preware's resourceHandler.js). It then handles
+launches with `{target: <ipk>}` or `{type: "install", file: <ipk>}` by showing the package's info.
 
 Differences from LuneOS:
 - Instead of sliding panels, `preware.ColumnPanels` (`source/ColumnPanels.js`) keeps the menu on the left and

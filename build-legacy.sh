@@ -22,6 +22,7 @@ if [ "$1" = "--debug" ]; then
 fi
 cp -r legacy/bin legacy/dbus legacy/upstart "$OUT/"
 chmod 755 "$OUT/bin/"*
+sed -i -e "s/@APPID@/$APPID/g" "$OUT/upstart/preware2-service-check"
 
 mkdir -p bin
 IPK=bin/${APPID}_${VERSION}_all.ipk

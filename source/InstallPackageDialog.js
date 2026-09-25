@@ -80,7 +80,7 @@ enyo.kind({
                     style: "border-radius: 8px;",
                     components: [
                         {kind: "enyo.FittableColumns", style: "width: 100%; background-color: #383838; border-radius: 8px 8px 0 0; padding: 5px;", components: [
-                        	{name: "pkgInfoIcon", tag: "img", style: "width: 48px; height: 48px;", attributes: {onerror: "this.style.display='none'"}},
+                        	{name: "pkgInfoIcon", kind: "Image", style: "width: 48px; height: 48px;", onerror: "infoIconError"},
                         	{name: "pkgInfoTitle", tag: "span", style: "position: relative; top: -10; color: #ffffff; padding-left: 10px; font-size: 28px;", content: "Hello World"},
                         ]},
                         {
@@ -198,6 +198,10 @@ enyo.kind({
         enyo.warn("In InstallPackageDialog: " + installUrl);
         this.$.ipkEdit.setValue(installUrl);
         this.validatePackageLocation();
+        //opened with a package (e.g. as the .ipk handler): show what it is right away.
+        if (installUrl) {
+            this.getInfo();
+        }
     },
     //handlers
     handleBackGesture: function (inSender, inEvent) {
@@ -314,6 +318,10 @@ enyo.kind({
         }
     },
     
+    infoIconError: function (inSender) {
+        inSender.hide();
+        return true;
+    },
     installDone: function (inSender, inEvent) {
         this.$.message.setContent(this.originalMessage + "<br /><bold>Done:</bold> " + inEvent.message);
         this.ipkOperation = false;
@@ -335,11 +343,8 @@ enyo.kind({
         	this.$.pkgInfoTitle.setContent("N/A");
         }
         
-        if (infoObj.Icon)
-        {
-        	this.$.pkgInfoIcon.setSrc(infoObj.Icon || "");
-        	this.$.pkgInfoIcon.applyStyle("display", infoObj.Icon ? "inline-block" : "none");
-        }
+        this.$.pkgInfoIcon.setSrc(infoObj.Icon || "");
+        this.$.pkgInfoIcon.setShowing(!!infoObj.Icon);
         
         if (infoObj.Description)
         {
