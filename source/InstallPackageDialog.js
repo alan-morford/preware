@@ -246,6 +246,7 @@ enyo.kind({
         this.$.message.setContent("Getting info for " + this.filename);
         this.originalMessage = "Getting info for " + this.filename;
         this.ipkOperation = true;
+        this.$.spinner.show();
         this.$.spinnerBackBtn.hide();
     },
     install: function (inSender, inEvent) {
@@ -260,6 +261,7 @@ enyo.kind({
         this.originalMessage = "Installing " + packageId;
         packageModel.doInstall();
         this.ipkOperation = true;
+        this.$.spinner.show();
         this.$.spinnerBackBtn.hide();
     },
     handleSelect: function (inSender, inEvent) {
@@ -315,6 +317,7 @@ enyo.kind({
     installDone: function (inSender, inEvent) {
         this.$.message.setContent(this.originalMessage + "<br /><bold>Done:</bold> " + inEvent.message);
         this.ipkOperation = false;
+        this.$.spinner.hide();
         this.$.spinnerBackBtn.show();
     },
     

@@ -9,5 +9,5 @@ cordova.js
 /build
 .idea/
 preware.iml
-deploy/
-bin/
+/deploy/
+/bin/

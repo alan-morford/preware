@@ -396,6 +396,9 @@ enyo.singleton({
     },
 
     fixUnknownDone: function () {
+        if (this.unknownFixed >= this.unknownCount) {
+            return; //already done, ignore late responses.
+        }
         this.unknownFixed += 1;
 
         if (this.unknownFixed === this.unknownCount) {

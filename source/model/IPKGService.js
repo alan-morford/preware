@@ -14,7 +14,9 @@ enyo.singleton({
             service: this.identifier,
             method: method,
             subscribe: parameters ? parameters.subscribe : false,
-            resubscribe: parameters ? parameters.subscribe : false
+            //these subscriptions only stream the result of one operation, retrying a failed
+            //call every 10s would call the callbacks again (and again...).
+            resubscribe: false
         });
         var generalSuccess = function (inSender, inResponse) {
                 // console.log(JSON.stringify(inSender.request), "IPKService#generalSuccess: " + JSON.stringify(inResponse));
@@ -119,6 +121,7 @@ enyo.singleton({
     replace: function (callback, pkg, filename, url) {
         var params = {
             pkg: pkg,
+            "package": pkg, //name used by the legacy org.webosinternals.ipkgservice
             subscribe: true,
             filename: filename,
             url: url
@@ -128,6 +131,7 @@ enyo.singleton({
     remove: function (callback, pkg) {
         var params = {
             pkg: pkg,
+            "package": pkg, //name used by the legacy org.webosinternals.ipkgservice
             subscribe: true
         };
         return this.doServiceCall(callback, "remove", params);

@@ -7,9 +7,9 @@ enyo.kind({
     ],
     reflow: function() {
         var narrow = enyo.Panels.isScreenNarrow(),
-            back = narrow && preware.Platform.needsBackButton();
+            back = preware.Platform.needsBackButton();
         this.children[0].applyStyle('visibility', narrow ? 'hidden' : 'visible');
-        this.children[0].setShowing(!back);
+        this.children[0].setShowing(!(narrow && back));
         this.$.backButton.setShowing(back);
     },
     //behave like the back gesture on devices without one.

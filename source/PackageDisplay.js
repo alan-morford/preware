@@ -21,7 +21,7 @@ enyo.kind({
         {
             kind: "onyx.Toolbar",
             components: [
-                {name: "PackageIcon", kind: "Image", style: "height: 100%; margin-right: 8px;"},
+                {name: "PackageIcon", kind: "Image", style: "height: 100%; margin-right: 8px;", onerror: "iconError"},
                 {name: "PackageTitle", style: "display: inline-block; position: absolute;", content: "Package"}
             ]
         },
@@ -182,6 +182,12 @@ enyo.kind({
 
 
     //handlers:
+    iconError: function (inSender) {
+        if (inSender.src !== ListItem.fallbackIcon) {
+            inSender.setSrc(ListItem.fallbackIcon);
+        }
+        return true;
+    },
     launchTapped: function () {
         this.currentPackage.launch();
     },

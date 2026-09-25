@@ -67,7 +67,7 @@ enyo.kind({
                                         {kind: "onyx.Spinner"},
                                         {
                                             name: "SpinnerText",
-                                            style: "color: white;",
+                                            style: "color: white; white-space: normal; padding: 0 12px;",
                                             allowHtml: true
                                         }
                                     ]
@@ -209,7 +209,12 @@ enyo.kind({
             UpdateFeeds.startUpdateFeeds();            
 
             //This appears to be our first opportunity to evaluate launch parameters, but they must be handled on the owner
-            var launchParams = JSON.parse(PalmSystem.launchParams);
+            var launchParams = null;
+            try {
+                launchParams = JSON.parse(PalmSystem.launchParams || "{}");
+            } catch (e) {
+                this.log("Could not parse launch params: " + PalmSystem.launchParams);
+            }
             if (launchParams && launchParams.type && launchParams.type.toLowerCase() == "install" && launchParams.file) {
                 enyo.warn("Preware was launched with a request to install an app: " + launchParams.file);
                 enyo.Signals.send("onLaunchedWithInstallRequest", { params: launchParams.file });

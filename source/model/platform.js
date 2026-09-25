@@ -10,9 +10,15 @@ enyo.singleton({
     serviceName: function () {
         return this.isLegacy ? "org.webosinternals.ipkgservice" : "org.webosports.service.ipkg";
     },
-    // The TouchPad has no gesture area, so a back button is needed when only one panel fits.
+    // The TouchPad has no gesture area, so a back button is needed (only one panel is shown at a time).
     // Phones running legacy webOS have a gesture area, but a button does not hurt there either.
     needsBackButton: function () {
         return this.isLegacy;
     }
 });
+
+// The legacy WebKit (534.6) intermittently fails to paint composited layers holding
+// long lists (the package list panel stays blank), so don't use 3D acceleration there.
+if (preware.Platform.isLegacy) {
+    enyo.dom.accelerando = false;
+}

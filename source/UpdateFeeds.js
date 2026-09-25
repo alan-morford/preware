@@ -186,7 +186,7 @@ enyo.singleton({
                 if (preware.IPKGService.isNotRunning(payload)) {
                     this.fatal($L("The service is not running. First try restarting Preware, or reboot your device and try again."));
                 } else if (preware.Platform.isLegacy && payload.errorText && payload.errorText.indexOf("does not exist") >= 0) {
-                    this.fatal($L("The Package Manager Service is not installed.<br>Preware 2 uses the service that comes with the original Preware, please install Preware (org.webosinternals.preware) first."));
+                    this.fatal($L("The Package Manager Service is not installed.<br>Please reinstall Preware 2. This can happen if the original Preware was removed, since both use the same service."));
                 } else {
                     this.fatal(payload.errorText);
                 }
