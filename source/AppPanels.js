@@ -231,9 +231,9 @@ enyo.kind({
             var file = preware.ResourceHandler.launchFile(launchParams);
             if (file) {
                 //launched just to install a package (e.g. from an app catalog): only do that,
-                //the feeds are loaded when the install dialog is closed.
+                //no feed update. Closing the install dialog closes the app (App.installDialogHidden).
                 enyo.warn("Preware was launched with a request to install an app: " + file);
-                this.updateDeferred = true;
+                this.launchedForInstall = true;
                 this.$.spinner.hide();
                 this.$.SpinnerText.setContent("");
                 enyo.Signals.send("onLaunchedWithInstallRequest", { params: file });
@@ -270,16 +270,8 @@ enyo.kind({
         }
         inEvent.preventDefault();
     },
-    //load the package list if that was skipped for an install request at launch.
-    startDeferredUpdate: function () {
-        if (this.updateDeferred) {
-            this.updateDeferred = false;
-            this.$.spinner.show();
-            UpdateFeeds.startUpdateFeeds();
-        }
-    },
     doReloadList: function () {
-        this.updateDeferred = false;
+        this.launchedForInstall = false;
         if (UpdateFeeds.isUpdating()) {
             return; //already loading.
         }

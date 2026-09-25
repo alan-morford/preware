@@ -89,8 +89,12 @@ enyo.kind({
         this.$.InstallPackageDialog.doInstall(inEvent.params);
     },
     installDialogHidden: function (inSender, inEvent) {
-        if (inEvent.originator === inSender) { //not a popup inside the dialog
-            this.$.AppPanels.startDeferredUpdate();
+        if (inEvent.originator !== inSender) {
+            return; //a popup inside the dialog
+        }
+        if (this.$.AppPanels.launchedForInstall) {
+            //another app started Preware just to install a package: closing the dialog closes Preware.
+            window.close();
         }
     },
     //the app was already running and got launched again, e.g. by opening an ipk from another app.
