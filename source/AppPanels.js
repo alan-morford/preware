@@ -38,6 +38,7 @@ enyo.kind({
             components: [
                 {
                     kind: "PortsSearch",
+                    onSearch: "searchChanged",
                     title: "Preware 2",
                     taglines: [
                         "I live... again...",
@@ -75,7 +76,21 @@ enyo.kind({
                             ]
                         },
                         //bubble doSettings and doManageFeeds events to parent.
-                        {kind: "preware.PackagesMenu", name: "packagesMenu", onSelected: "packagesMenuSelected"}
+                        {kind: "preware.PackagesMenu", name: "packagesMenu", onSelected: "packagesMenuSelected"},
+                        //search results, shown below the search box.
+                        {
+                            name: "SearchScroller",
+                            kind: "Scroller",
+                            horizontal: "hidden",
+                            style: "background-image:url('assets/bg.png')",
+                            touch: true,
+                            components: [
+                                {name: "NoSearchResults", showing: false, style: "color: white; text-align: center; padding: 24px;", content: $L("No packages found")},
+                                {name: "SearchRepeater", kind: "Repeater", onSetupItem: "setupSearchItem", count: 0, components: [
+                                    {kind: "ListItem", title: "[package]", icon: true, ontap: "searchResultTapped"}
+                                ]}
+                            ]
+                        }
                     ]
                 },
                 {kind: "onyx.Toolbar"}
@@ -171,6 +186,7 @@ enyo.kind({
                             touch: true,
                             fit: true,
                             components: [
+                                {name: "NoPackages", showing: false, style: "color: white; text-align: center; padding: 24px;", content: $L("No packages")},
                                 {name: "PackageRepeater", kind: "Repeater", onSetupItem: "setupPackageItem", count: 0, components: [
                                     {kind: "ListItem", title: "[package]", icon: true, ontap: "packageTapped"}
                                 ]}
@@ -223,7 +239,10 @@ enyo.kind({
     },
     handleBackGesture: function (inSender, inEvent) {
         var index = this.getIndex();
-        if (!this.showingTypeAndCategoriesPanels && index === this.categoryPanelsIndex + 1) { //mind the gap.
+        if (this.displayFromSearch && index === this.packageDisplayPanelsIndex) { //back to the search results.
+            this.displayFromSearch = false;
+            this.setIndex(this.menuPanelsIndex);
+        } else if (!this.showingTypeAndCategoriesPanels && index === this.categoryPanelsIndex + 1) { //mind the gap.
             this.setIndex(this.menuPanelsIndex);
         } else {//all panels are showing, that's easy.
             this.setIndex(Math.max(index - 1, 0));
@@ -281,6 +300,7 @@ enyo.kind({
         if (inEvent.packagesLength >= 0) {
             this.$.PackageRepeater.setCount(0);
             this.$.PackageRepeater.setCount(inEvent.packagesLength);
+            this.$.NoPackages.setShowing(inEvent.packagesLength === 0);
             this.$.PackagePanels.setIndex(1);
             this.setIndex(this.packagePanelsIndex);
         }
@@ -305,7 +325,53 @@ enyo.kind({
     categoryTapped: function (inSender, inEvent) {
         this.$.packagesMenu.filterByCategoryAndType(this.$.packagesMenu.availableCategories[inEvent.index].category, this.currentType);
     },
+    //search in package titles (and descriptions, if enabled in the preferences).
+    searchChanged: function (inSender, inEvent) {
+        enyo.job("preware-search", this.doSearch.bind(this, inEvent.value || ""), 300);
+        return true;
+    },
+    doSearch: function (text) {
+        var i, pkg, searchDesc = preware.PrefCookie.get().searchDesc;
+        if (this.$.ScrollerPanel.getIndex() === 0) {
+            return; //still loading.
+        }
+        text = text.toLowerCase().trim();
+        if (!text) {
+            this.$.ScrollerPanel.setIndex(1);
+            return;
+        }
+        this.searchResults = [];
+        for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
+            pkg = preware.PackagesModel.packages[i];
+            if ((pkg.title && pkg.title.toLowerCase().indexOf(text) >= 0) ||
+                    (searchDesc && pkg.description && pkg.description.toLowerCase().indexOf(text) >= 0)) {
+                this.searchResults.push(pkg);
+            }
+        }
+        this.searchResults.sort(function (a, b) {
+            return (a.title || "").toLowerCase().localeCompare((b.title || "").toLowerCase());
+        });
+        this.$.SearchRepeater.setCount(this.searchResults.length);
+        this.$.NoSearchResults.setShowing(this.searchResults.length === 0);
+        this.$.ScrollerPanel.setIndex(2);
+        this.$.SearchScroller.scrollToTop();
+    },
+    setupSearchItem: function (inSender, inEvent) {
+        var pkg = this.searchResults[inEvent.index];
+        if (pkg) {
+            inEvent.item.$.listItem.$.ItemTitle.setContent(pkg.title);
+            inEvent.item.$.listItem.$.ItemIcon.setSrc(pkg.icon);
+        }
+        return true;
+    },
+    searchResultTapped: function (inSender, inEvent) {
+        this.$.packageDisplay.setCurrentPackage(this.searchResults[inEvent.index]);
+        this.displayFromSearch = true;
+        this.$.PackageDisplayPanels.setIndex(1);
+        this.setIndex(this.packageDisplayPanelsIndex);
+    },
     packageTapped: function (inSender, inEvent) {
+        this.displayFromSearch = false;
         this.$.packageDisplay.setCurrentPackage(this.$.packagesMenu.getPackage(inEvent.index));
 
         this.$.PackageDisplayPanels.setIndex(1);
