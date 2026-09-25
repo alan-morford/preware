@@ -1,4 +1,5 @@
 enyo.depends(
+    "platform.js",
     "cookie.js",
     "deviceProfile.js",
     "feeds.js",

@@ -3,7 +3,7 @@
 
 enyo.singleton({
     name: "preware.IPKGService",
-    identifier: 'palm://org.webosports.service.ipkg',
+    identifier: 'palm://' + preware.Platform.serviceName(),
     log: "",
     logNum: 1,
     doServiceCall: function (callback, method, parameters) {
@@ -33,6 +33,10 @@ enyo.singleton({
         this.request.response(generalSuccess.bind(this));
         this.request.error(generalFailure.bind(this));
         return this.request.go(parameters);
+    },
+    //true if the payload says the package manager service is not available.
+    isNotRunning: function (payload) {
+        return !!payload && payload.errorText === preware.Platform.serviceName() + " is not running.";
     },
     version: function (callback) {
         return this.doServiceCall(callback, "version");
@@ -134,8 +138,8 @@ enyo.singleton({
     restartLuna: function (callback) {
         return this.doServiceCall(callback, "restartLuna");
     },
-    restartjava: function (callback) {
-        return this.doServiceCall(callback, "restartjava");
+    restartJava: function (callback) {
+        return this.doServiceCall(callback, "restartJava");
     },
     restartDevice: function (callback) {
         return this.doServiceCall(callback, "restartDevice");

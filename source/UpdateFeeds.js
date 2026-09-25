@@ -181,17 +181,19 @@ enyo.singleton({
 
             if (!payload) {
                 // i dont know if this will ever happen, but hey, it might
-                this.log($L("Cannot access the service. First try restarting Preware, or reboot your device and try again."));
+                this.fatal($L("Cannot access the service. First try restarting Preware, or reboot your device and try again."));
             } else if (payload.errorCode !== undefined) {
-                if (payload.errorText === "org.webosports.service.ipkg is not running.") {
-                    this.log($L("The service is not running. First try restarting Preware, or reboot your device and try again."));
+                if (preware.IPKGService.isNotRunning(payload)) {
+                    this.fatal($L("The service is not running. First try restarting Preware, or reboot your device and try again."));
+                } else if (preware.Platform.isLegacy && payload.errorText && payload.errorText.indexOf("does not exist") >= 0) {
+                    this.fatal($L("The Package Manager Service is not installed.<br>Preware 2 uses the service that comes with the original Preware, please install Preware (org.webosinternals.preware) first."));
                 } else {
-                    this.log(payload.errorText);
+                    this.fatal(payload.errorText);
                 }
             } else {
                 if (payload.apiVersion && payload.apiVersion < this.ipkgServiceVersion) {
                     // this is if this version is too old for the version number stuff
-                    this.log($L("The service version is too old. First try rebooting your device, or reinstall Preware and try again."));
+                    this.fatal($L("The service version is too old. First try rebooting your device, or reinstall Preware and try again."));
                 } else {
                     this.downloaded = false;
                     this.error = false;
@@ -201,6 +203,12 @@ enyo.singleton({
         } catch (e) {
             this.log("app#onVersionCheck: " + e);
         }
+    },
+
+    //show an error that stops the update process.
+    fatal: function (message) {
+        this.log(message);
+        enyo.Signals.send("onPackagesStatusUpdate", {message: message, error: true});
     },
 
     //trigger update of one feed:

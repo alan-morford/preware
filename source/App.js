@@ -13,13 +13,16 @@ enyo.kind({
             onCoreNaviDragStart: "handleCoreNaviDragStart",
             onCoreNaviDrag: "handleCoreNaviDrag",
             onCoreNaviDragFinish: "handleCoreNaviDragFinish",
-            onLaunchedWithInstallRequest: "handleLaunchInstallRequest"
+            onLaunchedWithInstallRequest: "handleLaunchInstallRequest",
+            onPackageActionRequired: "handlePackageActionRequired",
+            onrelaunch: "handleRelaunch"
         },
         {name: "AppPanels", kind: "AppPanels"},
         {kind: "CoreNavi", fingerTracking: true},
         {name: "SettingsDialog", kind: "SettingsDialog"},
         {name: "ManageFeedsDialog", kind: "ManageFeedsDialog"},
         {name: "InstallPackageDialog", kind: "InstallPackageDialog"},
+        {name: "RestartDialog", kind: "Preware.ChoiceDialog", title: $L("Restart Required"), onAction: "restartAccepted", onDismiss: "restartDeclined"},
         {
             kind: "AppMenu", //onSelect: "appMenuItemSelected",
             style: "overflow: hidden;",
@@ -57,6 +60,34 @@ enyo.kind({
         //enyo.info("Handling launch with install request on: " + this.name + " for " + inEvent.params);
         this.showInstallPackageDialog();
         this.$.InstallPackageDialog.doInstall(inEvent.params);
+    },
+    //the app was already running and got launched again, e.g. by opening an ipk from another app.
+    handleRelaunch: function (inSender, inEvent) {
+        if (inEvent && inEvent.type && inEvent.type.toLowerCase() === "install" && inEvent.file) {
+            this.handleLaunchInstallRequest(this, {params: inEvent.file});
+        }
+    },
+    //a package needs luna/java/device restart after install/update/removal.
+    handlePackageActionRequired: function (inSender, inEvent) {
+        this.pendingAction = inEvent.callback;
+        this.$.RestartDialog.set("body", inEvent.message);
+        this.$.RestartDialog.show();
+    },
+    restartAccepted: function () {
+        this.$.RestartDialog.hide();
+        if (this.pendingAction) {
+            this.pendingAction("ok");
+        }
+        this.pendingAction = null;
+        return true;
+    },
+    restartDeclined: function () {
+        this.$.RestartDialog.hide();
+        if (this.pendingAction) {
+            this.pendingAction("skip");
+        }
+        this.pendingAction = null;
+        return true;
     },
     showSettingsDialog: function (inSender, inEvent) {
         this.$.SettingsDialog.updateValues();

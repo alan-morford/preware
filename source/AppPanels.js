@@ -226,6 +226,7 @@ enyo.kind({
         inEvent.preventDefault();
     },
     doReloadList: function () {
+        this.$.spinner.show();
         UpdateFeeds.startUpdateFeeds(true);
         this.$.ScrollerPanel.setIndex(0);
     },
@@ -307,6 +308,8 @@ enyo.kind({
     },
     processStatusUpdate: function (inSender, inEvent) {
         this.log(inEvent.message);
+        this.$.SpinnerText.setContent(inEvent.message);
+        this.$.spinner.setShowing(!inEvent.error);
     },
     doneLoading: function (inSender, inEvent) {
         this.log("Done loading, num Packages: " + preware.PackagesModel.packages.length);

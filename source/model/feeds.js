@@ -43,7 +43,7 @@ enyo.singleton({
             } else if (payload.errorCode !== undefined) {
                 // we probably don't need to check this stuff here,
                 // it would have already been checked and errored out of this process
-                if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                if (preware.IPKGService.isNotRunning(payload)) {
                     this.doLoadFeedsFinished({success: false, message: $L("Cannot access the service. First try restarting Preware, or reboot your device and try again.")});
                 } else {
                     this.doLoadFeedsFinished({success: false, message: payload.errorText });

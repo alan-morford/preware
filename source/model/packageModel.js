@@ -998,20 +998,15 @@ enyo.kind({
                         preware.PackagesModel.doMultiInstall(multi + 1);
                         return;
                     } else {
-                        if (this.hasFlags('install')) { //TODO!
-                            console.error("assistant.actionMessage not yet replaced, logging instead");
-                            enyo.log(
-                                msg + ':<br /><br />' + this.actionMessage('install')
-                                //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                                //this.actionFunction.bind(this, 'install')
-                            );
+                        if (this.hasFlags('install')) {
+                            this.requestAction(msg, 'install');
                             return;
                         } else {
                             // we run this anyways to get the rescan
                             this.runFlags('install');
                         }
                     }
-                } else if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                } else if (preware.IPKGService.isNotRunning(payload)) {
                     // we keep this around for services without flags that have a javarestart in their scripts
                     // of course, it might get here on accident, but thats a risk we'll have to take for now [2]
 
@@ -1080,19 +1075,14 @@ enyo.kind({
                         return;
                     } else {
                         if (this.hasFlags('update')) {
-                            console.error("assistant.actionMessage not yet replaced, logging instead");
-                            enyo.log(
-                                msg + ':<br /><br />' + this.actionMessage('update')
-                                //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                                //this.actionFunction.bind(this, 'update')
-                            );
+                            this.requestAction(msg, 'update');
                             return;
                         } else {
                             // we run this anyways to get the rescan
                             this.runFlags('update');
                         }
                     }
-                } else if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                } else if (preware.IPKGService.isNotRunning(payload)) {
                     // we keep this around for services without flags that have a javarestart in their scripts
                     // of course, it might get here on accident, but thats a risk we'll have to take for now
 
@@ -1161,19 +1151,13 @@ enyo.kind({
 
                     // do finishing stuff
                     if (this.hasFlags('remove')) {
-                        //TODO: Hook into UI
-                        console.error("assistant.actionMessage not yet replaced, logging instead");
-                        enyo.log(
-                            msg + ':<br /><br />' + this.actionMessage('remove')
-                            //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                            //this.actionFunction.bind(this, 'remove')
-                        );
+                        this.requestAction(msg, 'remove');
                         return;
                     } else {
                         // we run this anyways to get the rescan
                         this.runFlags('remove');
                     }
-                } else if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                } else if (preware.IPKGService.isNotRunning(payload)) {
                     // we keep this around for services without flags that have a javarestart in their scripts
                     // of course, it might get here on accident, but thats a risk we'll have to take for now
 
@@ -1197,9 +1181,8 @@ enyo.kind({
                     //[{label:$L("Ok"), value:'ok'}, {label:$L("IPKG Log"), value:'view-log'}],
                     //this.actionFunction.bind(this, 'remove')
                 );
-            } else {
-                this.doSimpleMessage(msg);
             }
+            this.doSimpleMessage(msg);
         } catch (e) {
             console.error(e, 'packageModel#onRemove');
         }
@@ -1211,20 +1194,28 @@ enyo.kind({
         }
         return false;
     },
+    //tell the user a restart is needed and let them decide when to do it.
+    requestAction: function (msg, type) {
+        this.doSimpleMessage(msg);
+        enyo.Signals.send("onPackageActionRequired", {
+            message: msg + ':<br /><br />' + this.actionMessage(type),
+            callback: this.actionFunction.bind(this, type)
+        });
+    },
     runFlags: function (type) {
         try {
             if ((this.flags[type].RestartJava && this.flags[type].RestartLuna) || this.flags[type].RestartDevice) {
-                IPKGService.restartdevice(function () {});
+                preware.IPKGService.restartDevice(function () {});
             }
             if (this.flags[type].RestartJava) {
-                IPKGService.restartjava(function () {});
+                preware.IPKGService.restartJava(function () {});
             }
             if (this.flags[type].RestartLuna) {
-                IPKGService.restartluna(function () {});
+                preware.IPKGService.restartLuna(function () {});
             }
             // this is always ran...
             if (!preware.PrefCookie.get().avoidBugs && type !== 'remove') {
-                IPKGService.rescan(function () {});
+                preware.IPKGService.rescan(function () {});
             }
         } catch (e) {
             console.error(e, 'packageModel#runFlags');
@@ -1243,7 +1234,7 @@ enyo.kind({
         } else {
             // we should still rescan...
             if (!preware.PrefCookie.get().avoidBugs && type !== 'remove') {
-                IPKGService.rescan(function () {});
+                preware.IPKGService.rescan(function () {});
             }
         }
         return;

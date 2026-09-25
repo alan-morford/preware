@@ -72,7 +72,7 @@ enyo.singleton({
                     value = enyo.getCookie(field);
                     console.log("COOKIE, READ: " + field + " = " + value);
                     if (value !== undefined) {
-                        this.prefs[field] = value;
+                        this.prefs[field] = this.coerce(this.prefs[field], value);
                     }
                 }
             }
@@ -80,6 +80,23 @@ enyo.singleton({
             this.warn("COULD NOT GET COOKIE!!!");
             this.setAllValues();
         }
+    },
+    //cookies only store strings, convert back to the type of the default value.
+    //otherwise "false" would be truthy.
+    coerce: function (defaultValue, value) {
+        if (typeof value !== "string") {
+            return value;
+        }
+        if (typeof defaultValue === "boolean") {
+            return value === "true";
+        }
+        if (typeof defaultValue === "number") {
+            return isNaN(Number(value)) ? defaultValue : Number(value);
+        }
+        if (enyo.isArray(defaultValue)) {
+            return value ? value.split(",") : [];
+        }
+        return value;
     },
     put: function (obj, value) {
         try {

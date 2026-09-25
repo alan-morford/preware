@@ -132,7 +132,7 @@ enyo.singleton({
             if (!payload || payload.errorCode !== undefined) {
                 // we probably dont need to check this stuff here,
                 // it would have already been checked and errored out of this process
-                if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                if (preware.IPKGService.isNotRunning(payload)) {
                     this.displayStatus({
                         error: true,
                         message: $L("The Package Manager Service is not running. Did you remember to install it? If you did, first try restarting Preware, then try rebooting your device and not launching Preware until you have a stable network connection available.")
@@ -663,12 +663,15 @@ enyo.singleton({
                 }
 
                 if (this.multiFlags.RestartLuna || this.multiFlags.RestartJava || this.multiFlags.RestartDevice) {
-                    console.error("assistant.actionMessage not yet replaced, logging instead");
-                    console.log(
-                        $L("Packages installed:<br /><br />") + this.multiActionMessage(this.multiFlags)
-                        //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                        //this.multiActionFunction.bindAsEventListener(this, this.multiFlags)
-                    );
+                    this.doSimpleMessage($L("Packages installed"));
+                    enyo.Signals.send("onPackageActionRequired", {
+                        message: $L("Packages installed:<br /><br />") + this.multiActionMessage(this.multiFlags),
+                        callback: this.multiActionFunction.bind(this, this.multiFlags)
+                    });
+                    this.multiPkg    = false;
+                    this.multiPkgs    = false;
+                    this.multiFlags    = false;
+                    this.doMyApps        = false;
                     return;
                 } else {
                     // we run this anyways to get the rescan
@@ -758,21 +761,30 @@ enyo.singleton({
         }
     },
 
+    //result of the restart question after a multi install.
+    multiActionFunction: function (flags, value) {
+        if (value === 'ok') {
+            this.multiRunFlags(flags);
+        } else if (!preware.PrefCookie.get().avoidBugs) {
+            preware.IPKGService.rescan(function () {});
+        }
+    },
+
     //called in the end of an action. Triggers restarts and so on and also a rescann.
     multiRunFlags: function (flags) {
         try {
             if ((flags.RestartLuna && flags.RestartJava) || flags.RestartDevice) {
-                IPKGService.restartdevice(function () {});
+                preware.IPKGService.restartDevice(function () {});
             }
             if (flags.RestartJava && !flags.RestartLuna) {
-                IPKGService.restartjava(function () {});
+                preware.IPKGService.restartJava(function () {});
             }
             if (flags.RestartLuna && !flags.RestartJava) {
-                IPKGService.restartluna(function () {});
+                preware.IPKGService.restartLuna(function () {});
             }
             // this is always ran...
             if (!preware.PrefCookie.get().avoidBugs) {
-                IPKGService.rescan(function () {});
+                preware.IPKGService.rescan(function () {});
             }
         } catch (e) {
             console.error('packagesModel#multiRunFlags: ' + e);
