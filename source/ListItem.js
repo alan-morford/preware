@@ -18,13 +18,14 @@ enyo.kind({
         }}
     ],
     handlers: {
-        onmousedown: "pressed",
+        ondown: "pressed",
         ondragstart: "released",
-        onmouseup: "released"
+        onup: "released",
+        onleave: "released"
     },
     components:[
         {name: "ItemIcon", kind: "Image", style: "display: none; height: 100%; margin-right: 8px;", onerror: "iconError"},
-        {name: "ItemTitle", style: "display: inline-block; position: absolute; margin-top: 6px;"},
+        {name: "ItemTitle", classes: "list-item-title", style: "display: inline-block; position: absolute; margin-top: 6px;"},
         {name: "itemCount", showing: false, classes: "item-count"}
     ],
     create:    function() {
@@ -34,6 +35,7 @@ enyo.kind({
     rendered: function() {
         if(this.icon) {
             this.$.ItemIcon.addStyles("display: inline-block;");
+            this.addClass("list-item-has-icon");
         }
     },
     //many feed icons are hosted on sites that are gone, show a generic icon instead.

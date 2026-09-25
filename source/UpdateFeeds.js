@@ -16,6 +16,12 @@ enyo.singleton({
     // least time between status repaints (ms), the progress of several downloads
     // arrives faster than it is useful to redraw.
     progressRedrawMs: 400,
+    // a feed download that has not answered for this long counts as failed (ms).
+    feedTimeoutMs: 60000,
+    // an update is running (time it started, 0 if none).
+    updateStarted: 0,
+    // an update that has not finished after this long is assumed dead (ms).
+    updateStaleMs: 300000,
     downloaded: false,
     onlyLoad: false,
     timeouts: [],
@@ -36,6 +42,10 @@ enyo.singleton({
     //one is right before feed update
     //the other one is if we just load the feeds without update.
     doneLoadingFeeds: function (inSender, inEvent) {
+        if (!inEvent.success) {
+            this.fatal(inEvent.message || $L("Could not read the feed configuration."));
+            return;
+        }
         this.feeds = inEvent.feeds;
 
         if (this.downloaded || this.onlyLoad || !this.hasNet) {
@@ -52,7 +62,12 @@ enyo.singleton({
             }
         }
     },
+    //true while feeds are downloaded / packages loaded.
+    isUpdating: function () {
+        return this.updateStarted > 0 && (Date.now() - this.updateStarted) < this.updateStaleMs;
+    },
     donePackageParsing: function (inSender, inEvent) {
+        this.updateStarted = 0;
         //this is the end of the update process.. trigger parent.
         enyo.Signals.send("onUpdateFeedsFinished", {});
     },
@@ -64,6 +79,14 @@ enyo.singleton({
     //App Catalog apps...?
     //If that does not work, we just get the machine name and are done.
     startUpdateFeeds: function (force) {
+        // two updates at the same time download the same feeds twice, which can
+        // wedge the legacy package manager service.
+        if (this.isUpdating()) {
+            this.log("Update already running, not starting another one.");
+            return false;
+        }
+        this.updateStarted = Date.now();
+        this.serviceStuck = false;
         if (window.PalmServiceBridge === undefined) {
             this.log("No PalmServiceBridge found.");
         } else {
@@ -220,6 +243,7 @@ enyo.singleton({
 
     //show an error that stops the update process.
     fatal: function (message) {
+        this.updateStarted = 0;
         this.log(message);
         enyo.Signals.send("onPackagesStatusUpdate", {message: message, error: true});
     },
@@ -265,6 +289,7 @@ enyo.singleton({
     //trigger update of one feed:
     downloadFeedRequest: function (num) {
         this.downloadActive[num] = this.feeds[num];
+        this.watchFeed(num);
         this.displayDownloadProgress(true);
 
         preware.IPKGService.downloadFeed(this.downloadFeedResponse.bind(this, num),
@@ -275,6 +300,7 @@ enyo.singleton({
         if (!this.downloadActive[num]) {
             return;
         }
+        this.watchFeed(num);
 
         if (!payload.returnValue || payload.stage === "failed") {
             this.log(this.feeds[num].name + ": " + payload.errorText + '<br>' + (payload.stdErr ? payload.stdErr.join("<br>") : ""));
@@ -288,8 +314,21 @@ enyo.singleton({
             this.downloadFeedFinished(num);
         }
     },
+    //(re)start the timer that gives up on a feed download which stopped answering.
+    watchFeed: function (num) {
+        enyo.job("preware-feed-" + num, this.feedTimedOut.bind(this, num), this.feedTimeoutMs);
+    },
+    feedTimedOut: function (num) {
+        if (this.downloadActive[num]) {
+            this.log(this.feeds[num].name + ": download timed out");
+            this.error = true;
+            this.serviceStuck = true;
+            this.downloadFeedFinished(num);
+        }
+    },
     downloadFeedFinished: function (num) {
         var msg;
+        enyo.job.stop("preware-feed-" + num);
         if (this.downloadStatusFeed === this.feeds[num].name) {
             this.downloadStatusFeed = "";
             this.downloadStatus = "";
@@ -310,6 +349,11 @@ enyo.singleton({
 
         // we're done
         this.downloaded = true;
+        if (this.serviceStuck) {
+            // the service stopped answering, restart it so the next update works again.
+            this.log("Restarting the package manager service.");
+            preware.IPKGService.restart(function () {});
+        }
         msg = "<strong>" + $L("Done Downloading!") + "</strong>";
         if (this.error) {
             msg += "<br>" + $L("Some feeds failed to download.");

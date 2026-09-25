@@ -6,6 +6,8 @@
 
 enyo.kind({
     name: "App",
+    kind: "FittableRows",
+    classes: "enyo-fit",
     components: [
         {
             kind: "Signals",
@@ -17,7 +19,23 @@ enyo.kind({
             onPackageActionRequired: "handlePackageActionRequired",
             onrelaunch: "handleRelaunch"
         },
-        {name: "AppPanels", kind: "AppPanels"},
+        {
+            name: "searchHeader",
+            kind: "preware.SearchHeader",
+            disabled: true,
+            onSearch: "handleSearch",
+            title: "Preware 2",
+            taglines: [
+                "I live... again...",
+                "Miss me?",
+                "Installing packages, with a penguin!",
+                "How many Ports could a webOS Ports Port?",
+                "Not just for Apps anymore.",
+                "Serving apps for the last 1.67x10^8 seconds",
+                "Now with 100% more Enyo2!"
+            ]
+        },
+        {name: "AppPanels", kind: "AppPanels", fit: true},
         {kind: "CoreNavi", fingerTracking: true},
         {name: "SettingsDialog", kind: "SettingsDialog"},
         {name: "ManageFeedsDialog", kind: "ManageFeedsDialog"},
@@ -34,7 +52,14 @@ enyo.kind({
             ]
         }
     ],
+    create: function () {
+        this.inherited(arguments);
+        this.$.AppPanels.searchHeader = this.$.searchHeader;
+    },
     //Handlers
+    handleSearch: function (inSender, inEvent) {
+        return this.$.AppPanels.searchChanged(inSender, inEvent);
+    },
     handleBackGesture: function (inSender, inEvent) {
         if (this.$.ManageFeedsDialog.get('showing')) {
             this.$.AppPanels.doReloadList();

@@ -33,6 +33,9 @@ enyo.kind({
         listOfEverything: []
     },
 
+    handlers: {
+        ontap: "itemTapped"
+    },
     components: [
         {name: "updatesItem", kind: "ListItem", title: $L("Package Updates"), ontap: "showUpdatablePackages" },
         {name: "availableItem", kind: "ListItem", title: $L("Available Packages"), ontap: "showAvailableTypeList" },
@@ -60,6 +63,25 @@ enyo.kind({
     },
 
     //handlers:
+    //keep the item whose list is open highlighted.
+    itemTapped: function (inSender, inEvent) {
+        var c = inEvent.originator;
+        while (c && c.owner !== this) {
+            c = c.owner;
+        }
+        if (c && c.kindName === "ListItem") {
+            this.setSelectedItem(c);
+        }
+    },
+    setSelectedItem: function (item) {
+        var names = ["updatesItem", "availableItem", "installedItem", "listOfEverythingItem"], i;
+        for (i = 0; i < names.length; i += 1) {
+            this.$[names[i]].addRemoveClass("list-item-active", this.$[names[i]] === item);
+        }
+    },
+    clearSelection: function () {
+        this.setSelectedItem(null);
+    },
     showUpdatablePackages: function () {
         var i, pkg;
         this.currentPackageFilter = this.packageFilters.updatable;

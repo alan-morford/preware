@@ -6,10 +6,17 @@ enyo.singleton({
     identifier: 'palm://' + preware.Platform.serviceName(),
     log: "",
     logNum: 1,
+    //Requests that are still running. They must stay referenced: on legacy webOS an
+    //unreferenced request (and its PalmServiceBridge) can be garbage collected while
+    //the service is still answering, and the rest of the replies are lost.
+    activeRequests: {},
+    requestCounter: 0,
     //Every call gets its own request, so calls can run in parallel (e.g. several feed downloads).
     //Subscribed calls stream the progress of one operation; they are closed when it has finished.
     doServiceCall: function (callback, method, parameters) {
-        var subscribe = parameters ? !!parameters.subscribe : false,
+        var self = this,
+            id = (this.requestCounter += 1),
+            subscribe = parameters ? !!parameters.subscribe : false,
             request = new enyo.ServiceRequest({
                 service: this.identifier,
                 method: method,
@@ -21,10 +28,16 @@ enyo.singleton({
                 return !payload || payload.returnValue === false ||
                     payload.stage === "completed" || payload.stage === "end" || payload.stage === "failed";
             },
+            done = function () {
+                delete self.activeRequests[id];
+            },
             generalSuccess = function (inSender, inResponse) {
                 // console.log(JSON.stringify(inSender.request), "IPKService#generalSuccess: " + JSON.stringify(inResponse));
-                if (subscribe && finished(inResponse)) {
+                if (!subscribe) {
+                    done();
+                } else if (finished(inResponse)) {
                     request.cancel();
+                    done();
                 }
                 if (callback) {
                     callback(inResponse);
@@ -35,12 +48,14 @@ enyo.singleton({
                 if (subscribe) {
                     request.cancel();
                 }
+                done();
                 if (callback) {
                     callback(inError);
                 }
             };
 
         //console.log("Complete request: luna-send -n 10 " + this.identifier + "/" + method + " '" + JSON.stringify(parameters)  + "'");
+        this.activeRequests[id] = request;
         request.response(generalSuccess);
         request.error(generalFailure);
         request.go(parameters);
@@ -145,6 +160,10 @@ enyo.singleton({
             subscribe: true
         };
         return this.doServiceCall(callback, "remove", params);
+    },
+    //the service exits and is started again (by upstart / dbus).
+    restart: function (callback) {
+        return this.doServiceCall(callback, "restart");
     },
     rescan: function (callback) {
         return this.doServiceCall(callback, "rescan");

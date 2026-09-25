@@ -24,6 +24,27 @@
     font-size: 18px;
 }
 
+.list-item {
+    position: relative;
+}
+
+/* long package names stay on one line */
+.list-item-title {
+    left: 10px;
+    right: 60px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.list-item-has-icon .list-item-title {
+    left: 52px;
+}
+
+.list-item.list-item-active {
+    background-color: #1d3f63;
+}
+
 .list-item.onyx-selected {
     background-color: MidnightBlue;
 }
@@ -267,7 +288,7 @@
     position: absolute;
     top: 4px;
     left: 54px;
-    right: 212px;
+    right: 408px;
     margin: 0;
     overflow: hidden;
     white-space: nowrap;
@@ -286,32 +307,54 @@
     position: absolute !important;
     top: 9px;
     right: 8px;
-    width: 196px;
+    width: 392px;
     margin: 0 !important;
     padding: 2px 4px 3px 8px !important;
+    -webkit-box-sizing: border-box;
     box-sizing: border-box;
 }
 .preware-search-box > input {
-    width: 150px;
+    width: 100%;
+    padding-right: 30px;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
 }
+/* the search icon sits at the right end of the box */
 .preware-search-icon {
+    position: absolute;
+    right: 6px;
+    top: 50%;
     width: 24px;
     height: 24px;
-    vertical-align: middle;
+    margin-top: -12px;
 }
 .preware-search-box-disabled {
     opacity: 0.4;
 }
 @media (max-width: 480px) {
     .preware-search-header-text {
-        right: 142px;
+        right: 156px;
     }
     .preware-search-box {
-        width: 126px;
+        width: 140px;
     }
-    .preware-search-box > input {
-        width: 80px;
-    }
+}
+
+/* ColumnPanels.js (legacy webOS): menu on the left, panels open to its right */
+.preware-column-panels {
+    position: relative;
+    overflow: hidden;
+    background: #555 url('../assets/bg.png');
+}
+.preware-column {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+.preware-column-divider {
+    border-left: 1px solid #111;
 }
 
 /* tapping the grabber goes back one panel */
@@ -320,4 +363,8 @@
     padding: 6px 14px;
     margin: -6px 0 -6px -8px;
     vertical-align: middle;
+}
+
+.list-item-has-icon > img {
+    width: 32px;
 }

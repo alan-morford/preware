@@ -39,7 +39,11 @@ On install, `legacy/pmPostInstall.script` runs as root and
 Removing the original Preware removes the service; reinstall Preware 2 to get it back.
 
 Differences from LuneOS:
+- Instead of sliding panels, `preware.ColumnPanels` (`source/ColumnPanels.js`) keeps the menu on the left and
+  opens the other panels in columns to its right (in landscape the list stays next to the package details).
 - 3D acceleration is turned off, the TouchPad's WebKit (534.6) often did not paint the package list panel.
+- The legacy service can stop answering feed downloads when two updates run at once, so only one update runs
+  at a time, and a feed that is silent for a minute counts as failed and the service is restarted.
 - The toolbar grabber is always shown and tapping it goes back one panel, because the TouchPad has no gesture area.
 - Up to 6 feeds are downloaded at the same time (service API 18 or later), like the original Preware.
 

@@ -3,7 +3,8 @@
 
 enyo.kind({
     name: "AppPanels",
-    kind: "Panels",
+    //legacy webOS: menu always visible on the left, other panels open to its right.
+    kind: preware.Platform.isLegacy ? "preware.ColumnPanels" : "Panels",
     //FIXME bbito hack for qemux86/Tenderloin landscape compatibility
     //arrangerKind: "CollapsingArranger",
     arrangerKind: "CoreNaviArranger",
@@ -37,23 +38,8 @@ enyo.kind({
             style: "width: 33.3%",
             components: [
                 {
-                    name: "searchHeader",
-                    kind: "preware.SearchHeader",
-                    disabled: true,
-                    onSearch: "searchChanged",
-                    title: "Preware 2",
-                    taglines: [
-                        "I live... again...",
-                        "Miss me?",
-                        "Installing packages, with a penguin!",
-                        "How many Ports could a webOS Ports Port?",
-                        "Not just for Apps anymore.",
-                        "Serving apps for the last 1.67x10^8 seconds",
-                        "Now with 100% more Enyo2!"
-                    ]
-                },
-                {
                     name: "ScrollerPanel",
+                    //legacy webOS: menu always visible on the left, other panels open to its right.
                     kind: "Panels",
                     arrangerKind: "CardArranger",
                     fit: true,
@@ -102,6 +88,7 @@ enyo.kind({
         //Types
         {
             name: "TypePanels",
+            //legacy webOS: menu always visible on the left, other panels open to its right.
             kind: "Panels",
             arrangerKind: "CardArranger",
             draggable: false,
@@ -137,6 +124,7 @@ enyo.kind({
         //Categories
         {
             name: "CategoryPanels",
+            //legacy webOS: menu always visible on the left, other panels open to its right.
             kind: "Panels",
             arrangerKind: "CardArranger",
             draggable: false,
@@ -168,6 +156,7 @@ enyo.kind({
         //Packages
         {
             name: "PackagePanels",
+            //legacy webOS: menu always visible on the left, other panels open to its right.
             kind: "Panels",
             arrangerKind: "CardArranger",
             draggable: false,
@@ -203,6 +192,7 @@ enyo.kind({
         //Package Display
         {
             name: "PackageDisplayPanels",
+            //legacy webOS: menu always visible on the left, other panels open to its right.
             kind: "Panels",
             arrangerKind: "CardArranger",
             draggable: false,
@@ -218,6 +208,14 @@ enyo.kind({
     //Handlers
     create: function (inSender, inEvent) {
         this.inherited(arguments);
+        if (preware.Platform.isLegacy) {
+            //switch the cards inside the columns directly: an animation still running
+            //while ColumnPanels resizes a column left the old card visible next to the new one.
+            [this.$.ScrollerPanel, this.$.TypePanels, this.$.CategoryPanels,
+                this.$.PackagePanels, this.$.PackageDisplayPanels].forEach(function (p) {
+                p.setAnimate(false);
+            });
+        }
         setTimeout(this.handleDeviceReady.bind(this), 500);
         this.fired = false;
     },
@@ -239,6 +237,22 @@ enyo.kind({
             }
         }
     },
+    indexChanged: function () {
+        this.inherited(arguments);
+        if (this.index === this.menuPanelsIndex) {
+            this.$.packagesMenu.clearSelection();
+        }
+    },
+    //ColumnPanels: hide the panels that are not on the way to the current one.
+    isPanelSkipped: function (index) {
+        if (index === this.typePanelsIndex || index === this.categoryPanelsIndex) {
+            return !this.showingTypeAndCategoriesPanels || this.displayFromSearch;
+        }
+        if (index === this.packagePanelsIndex) {
+            return this.displayFromSearch;
+        }
+        return false;
+    },
     handleBackGesture: function (inSender, inEvent) {
         var index = this.getIndex();
         if (this.displayFromSearch && index === this.packageDisplayPanelsIndex) { //back to the search results.
@@ -252,14 +266,20 @@ enyo.kind({
         inEvent.preventDefault();
     },
     doReloadList: function () {
-        this.$.searchHeader.set("disabled", true);
-        this.$.searchHeader.clear();
+        if (UpdateFeeds.isUpdating()) {
+            return; //already loading.
+        }
+        this.searchHeader.set("disabled", true);
+        this.searchHeader.clear();
         this.$.spinner.show();
         UpdateFeeds.startUpdateFeeds(true);
         this.$.ScrollerPanel.setIndex(0);
     },
     reflow: function (inSender) {
         this.inherited(arguments);
+        if (preware.Platform.isLegacy) {
+            return; //ColumnPanels, no arrangers.
+        }
         if (enyo.Panels.isScreenNarrow()) {
             this.setArrangerKind("CoreNaviArranger");
             this.setDraggable(false);
@@ -318,15 +338,36 @@ enyo.kind({
     },
     showTypeAndCategoriesPanels: function (show) {
         this.showingTypeAndCategoriesPanels = show;
+        if (preware.Platform.isLegacy) {
+            return; //ColumnPanels shows/hides them on setIndex.
+        }
         this.$.TypePanels.setShowing(show);
         this.$.CategoryPanels.setShowing(show);
         this.render();
     },
+    //highlight the tapped list item (one per group), like the menu item.
+    markSelected: function (group, inEvent) {
+        var item = inEvent && inEvent.originator, old;
+        while (item && item.kindName !== "ListItem") {
+            item = item.parent;
+        }
+        this.selectedItems = this.selectedItems || {};
+        old = this.selectedItems[group];
+        if (old && old !== item && !old.destroyed) {
+            old.removeClass("list-item-active");
+        }
+        if (item && item.addClass) {
+            item.addClass("list-item-active");
+        }
+        this.selectedItems[group] = item;
+    },
     typeTapped: function (inSender, inEvent) {
+        this.markSelected("type", inEvent);
         this.currentType = this.$.packagesMenu.availableTypes[inEvent.index].type;
         this.$.packagesMenu.filterCategories(this.currentType);
     },
     categoryTapped: function (inSender, inEvent) {
+        this.markSelected("category", inEvent);
         this.$.packagesMenu.filterByCategoryAndType(this.$.packagesMenu.availableCategories[inEvent.index].category, this.currentType);
     },
     //search in package titles (and descriptions, if enabled in the preferences).
@@ -359,6 +400,9 @@ enyo.kind({
         this.$.NoSearchResults.setShowing(this.searchResults.length === 0);
         this.$.ScrollerPanel.setIndex(2);
         this.$.SearchScroller.scrollToTop();
+        if (!(this.isColumnMode && this.isColumnMode())) {
+            this.setIndex(this.menuPanelsIndex); //results are shown in the menu panel.
+        }
     },
     setupSearchItem: function (inSender, inEvent) {
         var pkg = this.searchResults[inEvent.index];
@@ -369,12 +413,14 @@ enyo.kind({
         return true;
     },
     searchResultTapped: function (inSender, inEvent) {
+        this.markSelected("list", inEvent);
         this.$.packageDisplay.setCurrentPackage(this.searchResults[inEvent.index]);
         this.displayFromSearch = true;
         this.$.PackageDisplayPanels.setIndex(1);
         this.setIndex(this.packageDisplayPanelsIndex);
     },
     packageTapped: function (inSender, inEvent) {
+        this.markSelected("list", inEvent);
         this.displayFromSearch = false;
         this.$.packageDisplay.setCurrentPackage(this.$.packagesMenu.getPackage(inEvent.index));
 
@@ -387,7 +433,7 @@ enyo.kind({
         this.$.spinner.setShowing(!inEvent.error);
     },
     doneLoading: function (inSender, inEvent) {
-        this.$.searchHeader.set("disabled", false);
+        this.searchHeader.set("disabled", false);
         this.log("Done loading, num Packages: " + preware.PackagesModel.packages.length);
         this.$.packagesMenu.set("listOfEverything", preware.PackagesModel.packages);
         // so if we're inactive we know to push a scene when we return
