@@ -8,11 +8,14 @@
 # with the original Preware's default feeds from legacy/pmPostInstall.script.
 set -e
 cd "$(dirname "$0")"
-APPID=$(node -e 'console.log(require("./appinfo.json").id)')
+# On legacy webOS only apps in the com.palm namespace may load files of other apps,
+# which Preware needs to show the icons of installed apps. (LuneOS keeps its own id.)
+APPID=com.palm.app.preware2
 VERSION=$(node -e 'console.log(require("./appinfo.json").version)')
 OUT=deploy/$APPID
 rm -rf "$OUT"
 node enyo/tools/deploy.js -o "$OUT"
+node -e 'var f=process.argv[1], a=JSON.parse(require("fs").readFileSync(f)); a.id=process.argv[2]; require("fs").writeFileSync(f, JSON.stringify(a, null, "\t"));' "$OUT/appinfo.json" "$APPID"
 if [ "$1" = "--debug" ]; then
     echo "including debug hook"
     cat debug/DebugHook.js >> "$OUT/build/app.js"
@@ -25,6 +28,11 @@ IPK=bin/${APPID}_${VERSION}_all.ipk
 rm -f "$IPK" "bin/${APPID}_${VERSION}_arm.ipk"
 palm-package "$OUT" -o bin
 # the installer runs these as root on install / before removal
-ar q "$IPK" legacy/pmPostInstall.script legacy/pmPreRemove.script
+SCRIPTS=$(mktemp -d)
+sed -e "s/^PID=.*/PID=\"$APPID\"/" legacy/pmPostInstall.script > "$SCRIPTS/pmPostInstall.script"
+cp legacy/pmPreRemove.script "$SCRIPTS/"
+chmod 755 "$SCRIPTS/"*
+ar q "$IPK" "$SCRIPTS/pmPostInstall.script" "$SCRIPTS/pmPreRemove.script"
+rm -rf "$SCRIPTS"
 mv "$IPK" "bin/${APPID}_${VERSION}_arm.ipk"
 echo "built bin/${APPID}_${VERSION}_arm.ipk"

@@ -80,7 +80,7 @@ enyo.kind({
                     style: "border-radius: 8px;",
                     components: [
                         {kind: "enyo.FittableColumns", style: "width: 100%; background-color: #383838; border-radius: 8px 8px 0 0; padding: 5px;", components: [
-                        	{name: "pkgInfoIcon", tag: "img", style: "width: 48px; height: 48px;"},
+                        	{name: "pkgInfoIcon", tag: "img", style: "width: 48px; height: 48px;", attributes: {onerror: "this.style.display='none'"}},
                         	{name: "pkgInfoTitle", tag: "span", style: "position: relative; top: -10; color: #ffffff; padding-left: 10px; font-size: 28px;", content: "Hello World"},
                         ]},
                         {
@@ -337,7 +337,8 @@ enyo.kind({
         
         if (infoObj.Icon)
         {
-        	this.$.pkgInfoIcon.setSrc(infoObj.Icon);
+        	this.$.pkgInfoIcon.setSrc(infoObj.Icon || "");
+        	this.$.pkgInfoIcon.applyStyle("display", infoObj.Icon ? "inline-block" : "none");
         }
         
         if (infoObj.Description)

@@ -368,3 +368,33 @@
 .list-item-has-icon > img {
     width: 32px;
 }
+
+/* loading / status box in the menu column: grows with its text */
+.onyx-toolbar.preware-status-box {
+    width: 90%;
+    height: auto;
+    min-height: 160px;
+    margin: 10% auto 2.5% auto;
+    padding: 16px 8px;
+    text-align: center;
+    border-radius: 16px;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+.preware-status-text {
+    color: white;
+    white-space: normal;
+    word-wrap: break-word;
+    font-size: 16px;
+    line-height: 22px;
+}
+
+/* the other columns have a 54px title bar and 53px rows: line the menu rows up with theirs */
+.preware-menu-first {
+    margin-top: 1px;
+}
+
+.webosstyle-groupbox-body-single {
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}

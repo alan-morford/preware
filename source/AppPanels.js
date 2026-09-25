@@ -49,14 +49,12 @@ enyo.kind({
                             style: "width: 100%; height: 100%; background-image: url('assets/bg.png');",
                             components: [
                                 {
-                                    kind: "FittableRows",
-                                    classes: "onyx-toolbar",
-                                    style: "width: 90%; height: 224px; margin: 10% auto 2.5% auto; text-align: center; border-radius: 16px;",
+                                    classes: "onyx-toolbar preware-status-box",
                                     components: [
                                         {kind: "onyx.Spinner"},
                                         {
                                             name: "SpinnerText",
-                                            style: "color: white; white-space: normal; padding: 0 12px;",
+                                            classes: "preware-status-text",
                                             allowHtml: true
                                         }
                                     ]
@@ -408,7 +406,7 @@ enyo.kind({
         var pkg = this.searchResults[inEvent.index];
         if (pkg) {
             inEvent.item.$.listItem.$.ItemTitle.setContent(pkg.title);
-            inEvent.item.$.listItem.$.ItemIcon.setSrc(pkg.icon);
+            inEvent.item.$.listItem.setIcon(pkg.icon);
         }
         return true;
     },
@@ -486,7 +484,7 @@ enyo.kind({
         var pkg = this.$.packagesMenu.getPackage(inEvent.index);
         if (pkg && pkg.title) {
             inEvent.item.$.listItem.$.ItemTitle.setContent(pkg.title);
-            inEvent.item.$.listItem.$.ItemIcon.setSrc(pkg.icon);
+            inEvent.item.$.listItem.setIcon(pkg.icon);
         }
         return true;
     }

@@ -37,7 +37,7 @@ enyo.kind({
         ontap: "itemTapped"
     },
     components: [
-        {name: "updatesItem", kind: "ListItem", title: $L("Package Updates"), ontap: "showUpdatablePackages" },
+        {name: "updatesItem", kind: "ListItem", classes: "preware-menu-first", title: $L("Package Updates"), ontap: "showUpdatablePackages" },
         {name: "availableItem", kind: "ListItem", title: $L("Available Packages"), ontap: "showAvailableTypeList" },
         {name: "installedItem", kind: "ListItem", title: $L("Installed Packages"), ontap: "showInstalledPackages" },
         {name: "listOfEverythingItem", kind: "ListItem", title: $L("List of Everything"), ontap: "showListOfEverything" }

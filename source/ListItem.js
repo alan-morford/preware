@@ -32,21 +32,19 @@ enyo.kind({
         this.inherited(arguments);
         this.$.ItemTitle.setContent(this.title);
     },
-    rendered: function() {
-        if(this.icon) {
-            this.$.ItemIcon.addStyles("display: inline-block;");
-            this.addClass("list-item-has-icon");
-        }
+    //show the package icon, or no icon at all if there is none.
+    setIcon: function(src) {
+        this.$.ItemIcon.setSrc(src || "");
+        this.showIcon(!!src);
     },
-    //many feed icons are hosted on sites that are gone, show a generic icon instead.
+    showIcon: function(show) {
+        this.$.ItemIcon.applyStyle("display", show ? "inline-block" : "none");
+        this.addRemoveClass("list-item-has-icon", show);
+    },
+    //many feed icons are hosted on sites that are gone.
     iconError: function(inSender) {
-        if (inSender.src !== ListItem.fallbackIcon) {
-            inSender.setSrc(ListItem.fallbackIcon);
-        }
+        this.showIcon(false);
         return true;
-    },
-    statics: {
-        fallbackIcon: "assets/file.png"
     },
     pressed: function() {
         this.addClass("onyx-selected");

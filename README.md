@@ -25,7 +25,10 @@ There it uses the package manager service of the original Preware
 default feeds, instead of `org.webosports.service.ipkg`. `preware.Platform`
 (`source/model/platform.js`) decides which one to use from the user agent.
 
-To build, run `./build-legacy.sh`. It produces `bin/org.webosports.app.preware_<version>_arm.ipk`,
+To build, run `./build-legacy.sh`. It produces `bin/com.palm.app.preware2_<version>_arm.ipk`.
+The legacy build uses the app id `com.palm.app.preware2`: legacy webOS only lets apps in the
+`com.palm` namespace load files of other apps, which is needed to show the icons of installed apps.
+The package
 which can be installed with `palm-install`, WebOS Quick Install or the original Preware.
 The device must be in developer mode.
 

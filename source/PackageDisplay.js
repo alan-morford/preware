@@ -34,7 +34,7 @@ enyo.kind({
             fit: true,
             components: [
                 {
-                    style: "padding: 0px 0px 70px 0px; height: 100%; width: 80%; margin: 0px auto; display: block; color: white",
+                    style: "padding: 0px 0px 70px 0px; height: 100%; margin: 0px 2px; display: block; color: white",
                     fit: true,
                     components: [
                         {tag: "div", classes: "webosstyle-groupbox", components: [
@@ -183,9 +183,7 @@ enyo.kind({
 
     //handlers:
     iconError: function (inSender) {
-        if (inSender.src !== ListItem.fallbackIcon) {
-            inSender.setSrc(ListItem.fallbackIcon);
-        }
+        inSender.hide();
         return true;
     },
     launchTapped: function () {
@@ -298,7 +296,8 @@ enyo.kind({
     },
     refreshPackageDisplay: function () {
 		this.$.PackageTitle.setContent(this.currentPackage.title);
-        this.$.PackageIcon.setSrc(this.currentPackage.icon);
+        this.$.PackageIcon.setSrc(this.currentPackage.icon || "");
+        this.$.PackageIcon.setShowing(!!this.currentPackage.icon);
         this.$.PackageDescription.setContent(this.currentPackage.description);
         this.$.PackageHomepage.setContent(this.currentPackage.homepage);
         
