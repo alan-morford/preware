@@ -23,6 +23,10 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <fcntl.h>
+#include <signal.h>
+#include <sys/select.h>
+#include <sys/wait.h>
 
 #include <json.h>
 
@@ -79,12 +83,35 @@ static bool locked_respond(LSMessage *message, const char *reply, LSError *lserr
   return returnValue;
 }
 
+//
+// The apps that may use this service: Preware 2 on LuneOS, and the build of
+// Preware 2 that also runs on legacy webOS. That one has to use an id in the
+// com.palm namespace there, to be allowed to show the icons of other apps.
+//
+static const char *allowed_app_ids[] = {
+  "org.webosports.app.preware",
+  "com.palm.app.preware2",
+  NULL
+};
+
+static bool app_allowed(const char *appId) {
+  if (!appId) return false;
+
+  for (int i = 0; allowed_app_ids[i]; i++) {
+    size_t len = strlen(allowed_app_ids[i]);
+    // The application id may be followed by a space and more
+    if (!strncmp(appId, allowed_app_ids[i], len) && (appId[len] == '\0' || appId[len] == ' '))
+      return true;
+  }
+
+  return false;
+}
+
 static bool access_denied(LSMessage *message) {
   LSError lserror;
   LSErrorInit(&lserror);
 
-  const char *appId = LSMessageGetApplicationID(message);
-  if (!appId || strncmp(appId, "org.webosports.app.preware", 26) || ((strlen(appId) > 26) && (*(appId+26) != ' '))) {
+  if (!app_allowed(LSMessageGetApplicationID(message))) {
     if (!LSMessageRespond(message, "{\"returnValue\": false, \"errorText\": \"Unauthorised access\"}", &lserror)) {
       LSErrorPrint(&lserror, stderr);
       LSErrorFree(&lserror);
@@ -685,9 +712,34 @@ bool set_auth_params_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
 //
 // Get the list of opkg configuration files, and return them and their contents.
 //
+//
+// The package manager's directories under /media/cryptofs/apps, and an empty
+// package status file (it has none until the first package is installed).
+// The package creates them at image build time, but where /media/cryptofs is
+// mounted from the data partition at boot (Halium devices, e.g. the BlackBerry
+// KEY2) those are hidden: feed configs could not be listed or added, feeds not
+// downloaded, and the package status not read. Creates only what is missing,
+// so it is called by every method that needs them.
+//
+static void prepare_directories(void) {
+  static const char *dirs[] = {
+    "/media/cryptofs/apps/etc/opkg",
+    "/media/cryptofs/apps/var/lib/opkg/cache",
+    "/media/cryptofs/apps/var/lib/opkg/lists",
+    NULL
+  };
+  for (int i = 0; dirs[i]; i++) {
+    g_mkdir_with_parents(dirs[i], 0755);
+  }
+  int fd = open("/media/cryptofs/apps/var/lib/opkg/status", O_WRONLY | O_CREAT, 0644);
+  if (fd >= 0) close(fd);
+}
+
 bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
+
+  prepare_directories();
 
   // Local buffer to store the config filename
   char filename[MAXNAMLEN];
@@ -717,8 +769,9 @@ bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
     return true;
   }
 
-  // Initialise the output message.
-  strcpy(buffer, "{");
+  // Initialise the output message: always a configs array, empty when there
+  // are no config files.
+  strcpy(buffer, "{\"configs\": [");
 
   // Loop through the list of files in the config directory.
   while ( fgets( filename, sizeof filename, fp)) {
@@ -729,14 +782,11 @@ bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
     // Ignore the arch.conf file
     if (!strcmp(filename, "arch.conf")) continue;
 
-    // Start or continue the JSON array
-    if (first) {
-      strcat(buffer, "\"configs\": [");
-      first = false;
-    }
-    else {
+    // Continue the JSON array
+    if (!first) {
       strcat(buffer, ", ");
     }
+    first = false;
 
     // Start the entry for each config file
     strcat(buffer, "{");
@@ -781,9 +831,7 @@ bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   }
 
   // Terminate the JSON array
-  if (!first) {
-    strcat(buffer, "], ");
-  }
+  strcat(buffer, "], ");
 
   // Check the close status of the process, and return the combined error status
   if (pclose(fp) || error) {
@@ -909,6 +957,8 @@ void *update_thread(void *arg) {
 bool update_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
+
+  prepare_directories();
 
   pthread_t tid;
 
@@ -1161,6 +1211,8 @@ bool get_status_file_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
 
+  prepare_directories();
+
   return read_file(message, "/media/cryptofs/apps/var/lib/opkg/status");
 
   LSErrorPrint(&lserror, stderr);
@@ -1357,6 +1409,8 @@ bool add_config_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
 
+  prepare_directories();
+
   json_object *object = json_tokener_parse(LSMessageGetPayload(message));
   json_object *id;
 
@@ -1509,6 +1563,10 @@ bool do_download(LSMessage *message, bool gzipped, const char *feed, const char 
 
   char pathname[MAXNAMLEN];
   sprintf(pathname, "/media/cryptofs/apps/var/lib/opkg/cache/%s", feed);
+
+  // The download below writes into the cache through a shell redirect, which
+  // does not create it.
+  prepare_directories();
 
   char headers[MAXLINLEN];
 
@@ -1673,7 +1731,131 @@ bool feed_download_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   return false;
 }
 
+//
+// Install a package through appinstalld and follow it to its end.
+//
+// appinstalld answers a subscribed install with a status message for every
+// step (ipk parsing, app closing, installing, ...) and ends with the state
+// "installed" or "install failed" - about 17 messages for a successful install.
+// It keeps the subscription open afterwards, so luna-send never exits by
+// itself; it is started without a shell, so that it can be ended once the
+// install is over. The states are passed on as status messages, as before.
+// run_command_buffer receives the output, like run_command().
+//
+#define APPINSTALLER_IDLE_TIMEOUT 300 // seconds without a message from appinstalld
+
+static bool appinstaller_install(LSMessage *message, const char *pkg, const char *pathname) {
+  LSError lserror;
+  LSErrorInit(&lserror);
+
+  bool installed = false, finished = false, first = true;
+  int fds[2];
+
+  // The id and path come from the caller: let json-c do the quoting.
+  json_object *params = json_object_new_object();
+  json_object_object_add(params, "subscribe", json_object_new_boolean(1));
+  json_object_object_add(params, "id", json_object_new_string(pkg));
+  json_object_object_add(params, "ipkUrl", json_object_new_string(pathname));
+  char payload[MAXLINLEN];
+  g_strlcpy(payload, json_object_to_json_string(params), sizeof(payload));
+  json_object_put(params);
+
+  if (pipe(fds)) return false;
+
+  pid_t pid = fork();
+  if (pid < 0) {
+    close(fds[0]); close(fds[1]);
+    return false;
+  }
+  if (!pid) {
+    dup2(fds[1], STDOUT_FILENO);
+    dup2(fds[1], STDERR_FILENO);
+    close(fds[0]); close(fds[1]);
+    execl("/usr/bin/luna-send", "luna-send", "-i",
+	  "luna://com.webos.appInstallService/install", payload, (char *)NULL);
+    _exit(127);
+  }
+  close(fds[1]);
+
+  FILE *fp = fdopen(fds[0], "r");
+  char line[MAXLINLEN];
+
+  while (fp && !finished) {
+    // Give up if appinstalld goes quiet, rather than hang this thread.
+    fd_set readable;
+    struct timeval timeout = {APPINSTALLER_IDLE_TIMEOUT, 0};
+    FD_ZERO(&readable);
+    FD_SET(fds[0], &readable);
+    if (select(fds[0] + 1, &readable, NULL, NULL, &timeout) <= 0) break;
+    if (!fgets(line, sizeof(line), fp)) break;
+    line[strcspn(line, "\r\n")] = '\0';
+    if (!strlen(line)) continue;
+
+    // Keep the raw output for the reply, as run_command() does.
+    json_escape_str_r(esc_buffer, MAXBUFLEN, line);
+    if (strlen(run_command_buffer) + strlen(esc_buffer) + 8 < MAXBUFLEN) {
+      if (!first) strcat(run_command_buffer, ", ");
+      first = false;
+      strcat(run_command_buffer, "\"");
+      strcat(run_command_buffer, esc_buffer);
+      strcat(run_command_buffer, "\"");
+    }
+
+    json_object *reply = json_tokener_parse(line);
+    json_object *details = reply ? json_object_object_get(reply, "details") : NULL;
+    json_object *state = details ? json_object_object_get(details, "state") : NULL;
+    json_object *ret = reply ? json_object_object_get(reply, "returnValue") : NULL;
+
+    if (state && json_object_is_type(state, json_type_string)) {
+      const char *st = json_object_get_string(state);
+      snprintf(buffer, MAXBUFLEN, "{\"returnValue\": true, \"stage\": \"status\", \"status\": \"%s\"}",
+	       json_escape_str_r(esc_buffer, MAXBUFLEN, (char *)st));
+      if (!LSMessageRespond(message, buffer, &lserror)) {
+	LSErrorPrint(&lserror, stderr);
+	LSErrorFree(&lserror);
+      }
+      if (!strcmp(st, "installed")) {
+	installed = true;
+	finished = true;
+      }
+      else if (!strcmp(st, "install failed")) {
+	finished = true;
+      }
+    }
+    else if (ret && !json_object_get_boolean(ret)) {
+      finished = true; // refused outright
+    }
+    if (reply) json_object_put(reply);
+  }
+
+  kill(pid, SIGTERM);
+  if (fp) fclose(fp); else close(fds[0]);
+  waitpid(pid, NULL, 0);
+
+  return installed;
+}
+
+static bool do_install_package(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc);
+
+//
+// Install a package, then remove the file if it was downloaded for this: once
+// installed (or failed) it is of no further use, and nothing else ever removes
+// it. A package the caller already had in /media/internal/.developer, given
+// as a file:// URL there, is installed in place and left alone.
+//
 bool do_install(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc) {
+  bool result = do_install_package(message, filename, pkg, url, useSvc);
+
+  if (strncmp(url, "file:///media/internal/.developer/", 34)) {
+    char pathname[MAXNAMLEN];
+    snprintf(pathname, sizeof(pathname), "/media/internal/.developer/%s", filename);
+    unlink(pathname);
+  }
+
+  return result;
+}
+
+static bool do_install_package(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc) {
   LSError lserror;
   LSErrorInit(&lserror);
 
@@ -1756,21 +1938,18 @@ bool do_install(LSMessage *message, const char *filename, const char *pkg, const
   }
 
   /* Install the package */
-  char installCommand[MAXLINLEN];
-  subscribefun installFilter;
+  bool installOk;
 
+  strcpy(run_command_buffer, "{\"stdOut\": [");
   if (useSvc) {
-    snprintf(installCommand, MAXLINLEN, "/usr/bin/luna-send -n 6 luna://com.webos.appInstallService/install '{\"subscribe\":true, \"id\": \"%s\", \"ipkUrl\": \"%s\"}' 2>&1", pkg, pathname);
-    installFilter = appinstaller;
+    snprintf(command, MAXLINLEN, "appInstallService/install %s", pathname);
+    installOk = appinstaller_install(message, pkg, pathname);
   }
   else {
-    snprintf(installCommand, MAXLINLEN, "/usr/bin/opkg -o /media/cryptofs/apps -force-overwrite install %s 2>&1", pathname);
-    installFilter = passthrough;
+    snprintf(command, MAXLINLEN, "/usr/bin/opkg -o /media/cryptofs/apps -force-overwrite install %s 2>&1", pathname);
+    installOk = run_command(command, message, passthrough);
   }
-
-  snprintf(command, MAXLINLEN, installCommand, pathname);
-  strcpy(run_command_buffer, "{\"stdOut\": [");
-  if (run_command(command, message, installFilter)) {
+  if (installOk) {
     strcat(run_command_buffer, "], \"returnValue\": true, \"stage\": \"install\"}");
     installed = true;
     if (!LSMessageRespond(message, run_command_buffer, &lserror)) goto error;
