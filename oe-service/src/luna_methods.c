@@ -769,8 +769,9 @@ bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
     return true;
   }
 
-  // Initialise the output message.
-  strcpy(buffer, "{");
+  // Initialise the output message: always a configs array, empty when there
+  // are no config files.
+  strcpy(buffer, "{\"configs\": [");
 
   // Loop through the list of files in the config directory.
   while ( fgets( filename, sizeof filename, fp)) {
@@ -781,14 +782,11 @@ bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
     // Ignore the arch.conf file
     if (!strcmp(filename, "arch.conf")) continue;
 
-    // Start or continue the JSON array
-    if (first) {
-      strcat(buffer, "\"configs\": [");
-      first = false;
-    }
-    else {
+    // Continue the JSON array
+    if (!first) {
       strcat(buffer, ", ");
     }
+    first = false;
 
     // Start the entry for each config file
     strcat(buffer, "{");
@@ -833,9 +831,7 @@ bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   }
 
   // Terminate the JSON array
-  if (!first) {
-    strcat(buffer, "], ");
-  }
+  strcat(buffer, "], ");
 
   // Check the close status of the process, and return the combined error status
   if (pclose(fp) || error) {
