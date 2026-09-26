@@ -149,7 +149,7 @@ enyo.kind({
                 this.availablePackages.push(pkg);
             }
         }
-        this.sortPackageList("date");
+        this.sortPackageList();
 
         this.doSelected({name: "all", packagesLength: this.availablePackages.length});
     },
@@ -229,23 +229,40 @@ enyo.kind({
 
 
     //auxillary package handling stuff:
-    sortPackageList: function (field) {
-        if (!field) {
-            field = "title";
-        }
-        this.availablePackages.sort(function (a, b) {
-            var strA, strB;
-            if (a[field] && b[field]) {
-                if (typeof a[field] === 'string') {
-                    strA = a[field].toLowerCase();
-                    strB = b[field].toLowerCase();
-                } else {
-                    strA = a[field];
-                    strB = b[field];
+    //sorts the package list by the "Sort Order" preference ("Category Default"
+    //is by title). The comparison has to be consistent, or Array.sort mixes the
+    //list up (a comparison that said "first" for every undated package reversed it).
+    sortPackageList: function () {
+        var sort = preware.PrefCookie.get().listSort,
+            //some feeds have titles starting with a space (modernize)
+            title = function (p) {
+                return String(p.title || p.pkg || "").replace(/^\s+/, "").toLowerCase();
+            },
+            byTitle = function (a, b) {
+                var x = title(a), y = title(b);
+                return x < y ? -1 : (x > y ? 1 : 0);
+            },
+            number = function (v) {
+                var n = parseFloat(String(v).replace(/[^0-9.]/g, ""));
+                return isNaN(n) ? undefined : n;
+            },
+            compare = byTitle;
+
+        if (sort === "date") { //newest first, undated ones last
+            compare = function (a, b) {
+                var x = number(a.date) || undefined, y = number(b.date) || undefined; //0: unknown
+                if (x !== y) {
+                    if (x === undefined) {
+                        return 1;
+                    }
+                    if (y === undefined) {
+                        return -1;
+                    }
+                    return y - x;
                 }
-                return ((strA < strB) ? -1 : ((strA > strB) ? 1 : 0));
-            }
-            return -1;
-        });
+                return byTitle(a, b);
+            };
+        }
+        this.availablePackages.sort(compare);
     }
 });

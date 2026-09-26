@@ -244,12 +244,23 @@
 /* End Settings Items */
 
 /* Style for Manage Feeds Dialog */
-.managefeedslist-feed-item > * {
-	display: inline-block;
-	vertical-align: middle;
+/* The toggle floats at the right, at its own width; the text next to it keeps
+   to the width that is left (overflow: hidden), and the row holds both. */
+.managefeedslist-feed-item-columns {
+	overflow: hidden;
 }
-.managefeedslist-feed-item-enable-toggle {
+.managefeedslist-feed-item-toggle {
 	float: right;
+	margin-left: 10px;
+}
+.managefeedslist-feed-item-text {
+	overflow: hidden;
+}
+.managefeedslist-feed-item-url {
+	font-size: 10px;
+	color: LightGray;
+	/* URLs have no spaces to wrap at */
+	word-break: break-all;
 }
 /* End Manage Feeds Dialog */
 
@@ -340,7 +351,7 @@
     }
 }
 
-/* ColumnPanels.js (legacy webOS): menu on the left, panels open to its right */
+/* ColumnPanels.js: menu on the left, panels open to its right */
 .preware-column-panels {
     position: relative;
     overflow: hidden;
@@ -358,11 +369,18 @@
 }
 
 /* tapping the grabber goes back one panel */
+/* The grabber sits at the left edge, out of the flow, so the buttons of a
+   toolbar are centred on the screen whether it is shown or not. */
+.preware-grabber-toolbar {
+    position: relative;
+    text-align: center;
+}
 .preware-grabber-area {
-    display: inline-block;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -19px; /* half its height: 27px grabber + 12px padding */
     padding: 6px 14px;
-    margin: -6px 0 -6px -8px;
-    vertical-align: middle;
 }
 
 .list-item-has-icon > img {

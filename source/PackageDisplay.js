@@ -202,10 +202,10 @@ enyo.kind({
     
     /** Opens every maintainer URL found. Realistically, will there ever be more than one? */
     maintainerTap: function () {
-    	var i;
-    	for (i=0; i<this.currentPackage.maintainer.length; ++i) {
-    		if (this.currentPackage.maintainer[i].url) {
-                var mailToTarget = 'mailto:' + this.currentPackage.maintainer[i].url + '?subject=' + this.currentPackage.title;
+    	var i, maintainer = this.currentPackage.maintainer || [];
+    	for (i=0; i<maintainer.length; ++i) {
+    		if (maintainer[i].url) {
+                var mailToTarget = 'mailto:' + maintainer[i].url + '?subject=' + this.currentPackage.title;
     			this.$.openService.send({target: mailToTarget});
     		}
     	}
@@ -302,7 +302,8 @@ enyo.kind({
         this.$.PackageDescription.setContent(this.currentPackage.description);
         this.$.PackageHomepage.setContent(this.currentPackage.homepage);
         
-        this.$.PackageMaintainer.setContent(this.currentPackage.maintainer.map(function (currentValue) {
+        //a package can come without any maintainer (false)
+        this.$.PackageMaintainer.setContent((this.currentPackage.maintainer || []).map(function (currentValue) {
         	return currentValue.url ? currentValue.name + ' (' + currentValue.url + ')': currentValue.name;
         }).join('<br><br>'));
         

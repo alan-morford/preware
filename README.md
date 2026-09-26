@@ -46,9 +46,17 @@ Preware 2 offers to register itself as the application that opens `.ipk` files
 (`source/model/resourceHandler.js`, like the original Preware's resourceHandler.js). It then handles
 launches with `{target: <ipk>}` or `{type: "install", file: <ipk>}` by showing the package's info.
 
+On LuneOS, which does not run the install scripts of app packages, Preware 2 adds the same default feeds
+itself at its first start (`source/model/luneosFeeds.js`), through `org.webosports.service.ipkg`. It keeps them
+in files named `preware2-*.conf`, and shows only its default feeds and the feeds added in Preware 2, not the
+other feeds LuneOS ships. A default feed LuneOS already ships (PivotCE) is used, and turned on, instead of
+being added a second time.
+
+On both, `preware.ColumnPanels` (`source/ColumnPanels.js`) keeps the menu on the left and opens the other panels
+in columns to its right (in landscape the list stays next to the package details); on a phone it shows one
+panel at a time. There are no sliding or zooming transitions between panels.
+
 Differences from LuneOS:
-- Instead of sliding panels, `preware.ColumnPanels` (`source/ColumnPanels.js`) keeps the menu on the left and
-  opens the other panels in columns to its right (in landscape the list stays next to the package details).
 - 3D acceleration is turned off, the TouchPad's WebKit (534.6) often did not paint the package list panel.
 - The legacy service can stop answering feed downloads when two updates run at once, so only one update runs
   at a time, and a feed that is silent for a minute counts as failed and the service is restarted.

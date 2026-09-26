@@ -5,6 +5,7 @@ enyo.depends(
     "feeds.js",
     "filePicker.js",
     "IPKGService.js",
+    "luneosFeeds.js",
     "packageModel.js",
     "packagesModel.js",
     "palmProfile.js",

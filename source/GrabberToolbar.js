@@ -1,6 +1,7 @@
 enyo.kind({
     name: "GrabberToolbar",
     kind: "onyx.Toolbar",
+    classes: "preware-grabber-toolbar",
     components:[
         {name: "grabberArea", classes: "preware-grabber-area", ontap: "grabberTapped", components: [
             {kind: "onyx.Grabber"}

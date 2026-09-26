@@ -64,20 +64,19 @@ rm -f $APPS/etc/ipkg/precentral.conf
 # Install backup webosnation feed
 echo "src/gz precentral http://weboslives.eu/feeds/precentral" > $APPS/etc/ipkg/precentral-weboslives.conf
 
-# Install App Museum feed (disabled by default)
-echo "src/gz precentral http://weboslives.eu/feeds/wosa" > $APPS/etc/ipkg/wosa-appmuseum.conf.new
+# Install App Museum feed. Its own feed name: under "precentral", like the feed
+# above, each would overwrite the other's package list.
+echo "src/gz appmuseum http://weboslives.eu/feeds/wosa" > $APPS/etc/ipkg/wosa-appmuseum.conf
 
-# Install PreCentral theme feed (disabled by default)
-echo "src/gz precentral-themes http://ipkg.preware.net/feeds/precentral-themes" > $APPS/etc/ipkg/precentral-themes.conf.new
+# Install PreCentral theme feed
+echo "src/gz precentral-themes http://ipkg.preware.net/feeds/precentral-themes" > $APPS/etc/ipkg/precentral-themes.conf
 
 # Install PivotCE feeds
 echo "src/gz pivotce http://feed.pivotce.com" > $APPS/etc/ipkg/pivotce.conf
 
-# Install prethemer feed (disabled by default)
-echo "src/gz prethemer http://www.prethemer.com/feeds/preware/themes" > $APPS/etc/ipkg/prethemer.conf.new
-
-# Install clock-themes feed (disabled by default)
-echo "src/gz clock-themes http://webos-clock-themer.googlecode.com/svn/trunk/WebOS%20Clock%20Theme%20Builder/feed" > $APPS/etc/ipkg/clock-themes.conf.new
+# Remove dead prethemer and clock-themes (Google Code) feeds
+rm -f $APPS/etc/ipkg/prethemer.conf $APPS/etc/ipkg/prethemer.conf.disabled $APPS/etc/ipkg/prethemer.conf.new
+rm -f $APPS/etc/ipkg/clock-themes.conf $APPS/etc/ipkg/clock-themes.conf.disabled $APPS/etc/ipkg/clock-themes.conf.new
 
 # Install webosinternals feeds
 echo "src/gz webosinternals http://ipkg.preware.net/feeds/webos-internals/all" > $APPS/etc/ipkg/webos-internals.conf

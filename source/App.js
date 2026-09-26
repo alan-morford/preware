@@ -105,7 +105,7 @@ enyo.kind({
             this.handleLaunchInstallRequest(this, {params: file});
         }
     },
-    //offer to make Preware the app that opens .ipk files (once per launch, legacy webOS).
+    //offer to make Preware the app that opens .ipk files (once per launch).
     checkResourceHandler: function () {
         if (this.resourceHandlerChecked || !preware.PrefCookie.get().resourceHandlerCheck) {
             return;

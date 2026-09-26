@@ -88,12 +88,64 @@ enyo.singleton({
             };
         return this.doServiceCall(callback, "setAuthParams", params);
     },
+    //On LuneOS Preware 2 keeps its feeds apart from the ones LuneOS ships, in
+    //files named preware2-<config>, and shows only its own. The rest of the app
+    //sees the configs without the prefix, as on legacy webOS.
+    //See preware.LuneOSFeeds for the default feeds there.
+    configPrefix: preware.Platform.isLegacy ? "" : "preware2-",
+    //config shown -> file, from the last list_configs (LuneOS)
+    configFiles: {},
+    configFile: function (config) {
+        return this.configFiles[config] || this.configPrefix + config;
+    },
+    //true if the file behind a config shown is one Preware 2 added itself.
+    isOwnConfig: function (config) {
+        return this.configFile(config).indexOf(this.configPrefix) === 0;
+    },
     list_configs: function (callback) {
-        return this.doServiceCall(callback, "getConfigs");
+        var self = this;
+        return this.doServiceCall(function (payload) {
+            if (self.configPrefix && payload && payload.configs) {
+                payload.configs = self.ownConfigs(payload.configs);
+            }
+            if (callback) {
+                callback(payload);
+            }
+        }, "getConfigs");
+    },
+    //LuneOS: the configs Preware 2 shows. A feed LuneOS ships that is one of the
+    //default feeds is shown (under the default's config name) instead of adding
+    //it again; then the ones Preware 2 added, without the prefix.
+    ownConfigs: function (all) {
+        var prefix = this.configPrefix, configs = [], files = {}, i, c, name, feed;
+        for (i = 0; i < all.length; i += 1) {
+            c = all[i];
+            if (c.config.indexOf(prefix) !== 0 && c.contents) {
+                feed = preware.LuneOSFeeds.defaultFeedFor((c.contents.split("<br>")[0].split(" ")[2]) || "");
+                if (feed && !files[feed.config]) {
+                    files[feed.config] = c.config;
+                    c.config = feed.config;
+                    configs.push(c);
+                }
+            }
+        }
+        for (i = 0; i < all.length; i += 1) {
+            c = all[i];
+            if (c.config.indexOf(prefix) === 0) {
+                name = c.config.substring(prefix.length);
+                if (!files[name]) {
+                    files[name] = c.config;
+                    c.config = name;
+                    configs.push(c);
+                }
+            }
+        }
+        this.configFiles = files;
+        return configs;
     },
     setConfigState: function (callback, config, enabled) {
         var params = {
-            config: config,
+            config: this.configFile(config),
             enabled: enabled
         };
         return this.doServiceCall(callback, "setConfigState", params);
@@ -209,7 +261,7 @@ enyo.singleton({
     addConfig: function (callback, config, name, url, gzip) {
         var params = {
             subscribe: true,
-            config: config,
+            config: this.configFile(config),
             name: name,
             url: url,
             gzip: gzip
@@ -219,7 +271,7 @@ enyo.singleton({
     deleteConfig: function (callback, config, name) {
         var params = {
             subscribe: true,
-            config: config,
+            config: this.configFile(config),
             name: name
         };
         return this.doServiceCall(callback, "deleteConfig", params);

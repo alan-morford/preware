@@ -139,6 +139,12 @@ enyo.singleton({
                     });
                     setTimeout(this.doneUpdating.bind(this), 5000); //TODO: make sure that user can see the errro.
                     return;
+                } else if (num >= 0) {
+                    // A feed that could not be downloaded has no package list
+                    // (the download step has already said so): skip it, rather
+                    // than leave every feed after it unloaded.
+                    console.error("Got error, skipping feed " + this.feeds[num] + ": " + payload.errorText);
+                    doneLoading = true;
                 } else {
                     // Do not do this until we work out how to handle multiple errors.
                     //this.updateAssistant.errorMessage('Preware', payload.errorText, this.updateAssistant.doneUpdating);

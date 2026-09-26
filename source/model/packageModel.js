@@ -31,6 +31,10 @@ enyo.kind({
     // onBackendSimpleMessage: { msg: text message } //emitted at the end of operations.
     // onPackageRefresh: {} // emitted at operations that require UI to reload package information.
 
+    //a feed value that should be a list, but may be a single value.
+    asList: function (value) {
+        return enyo.isArray(value) ? value : [value];
+    },
     doSimpleMessage: function (msg) {
         enyo.Signals.send("onBackendSimpleMessage", {message: msg});
     },
@@ -168,7 +172,7 @@ enyo.kind({
     },
 
     infoLoad: function (info) {
-        var splitRes, i, r, match, tmp, sourceJson = {}, blacklist, b, m;
+        var splitRes, i, r, match, tmp, sourceJson = {}, blacklist, b, m, lastUpdated;
         try {
             // load data
             this.pkg =      this.pkg      || info.Package;
@@ -243,7 +247,9 @@ enyo.kind({
                 this.preInstallMessage =    this.preInstallMessage   || sourceJson.PreInstallMessage;
                 this.preUpdateMessage =     this.preUpdateMessage    || sourceJson.PreUpdateMessage;
                 this.preRemoveMessage =     this.preRemoveMessage    || sourceJson.PreRemoveMessage;
-                this.date =                 this.date                || isNumeric(sourceJson.LastUpdate) ? sourceJson.LastUpdate : undefined;
+                // the feeds call it LastUpdated (and so does infoSave below)
+                lastUpdated = sourceJson.LastUpdated !== undefined ? sourceJson.LastUpdated : sourceJson.LastUpdate;
+                this.date =                 this.date                || (isNumeric(lastUpdated) ? lastUpdated : undefined);
                 if ((!this.screenshots || this.screenshots.length === 0) && sourceJson.Screenshots) {
                     this.screenshots = sourceJson.Screenshots;
                 }
@@ -260,9 +266,10 @@ enyo.kind({
                     this.maxWebOSVersion = sourceJson.MaxWebOSVersion;
                 }
 
+                // some feeds (the App Museum) give a single value instead of a list
                 if (sourceJson.DeviceCompatibility) {
-                    this.devices = sourceJson.DeviceCompatibility;
-                    this.deviceString = sourceJson.DeviceCompatibility.join(", ");
+                    this.devices = this.asList(sourceJson.DeviceCompatibility);
+                    this.deviceString = this.devices.join(", ");
                 }
 
                 if (sourceJson.Feed) {
@@ -271,13 +278,13 @@ enyo.kind({
                 }
 
                 if (sourceJson.Countries) {
-                    this.countries = sourceJson.Countries;
-                    this.countryString = sourceJson.Countries.join(", ");
+                    this.countries = this.asList(sourceJson.Countries);
+                    this.countryString = this.countries.join(", ");
                 }
 
                 if (sourceJson.Languages) {
-                    this.languages = sourceJson.Languages;
-                    this.languageString = sourceJson.Languages.join(", ");
+                    this.languages = this.asList(sourceJson.Languages);
+                    this.languageString = this.languages.join(", ");
                 }
 
                 if (sourceJson.PostInstallFlags) {
@@ -384,12 +391,15 @@ enyo.kind({
             if (this.category === 'Unsorted') {
                 this.category =    pkg.category;
             }
-            if (!this.maintainer || this.maintainer.length === 0 ||
-                (this.maintainer.length === 1 && this.maintainer[0].name === 'N/A')) {
+            // only take the other one's maintainers if it has any (a feed entry
+            // may have none: false)
+            if ((!this.maintainer || this.maintainer.length === 0 ||
+                    (this.maintainer.length === 1 && this.maintainer[0].name === 'N/A')) &&
+                    enyo.isArray(pkg.maintainer) && pkg.maintainer.length > 0) {
                 this.maintainer = pkg.maintainer;
             }
-            this.date = this.date || isNumeric(pkg.date) ? pkg.date : undefined;
-            this.dateInstalled = this.dateInstalled || isNumeric(pkg.dateInstalled) ? pkg.dateInstalled : undefined;
+            this.date = this.date || (isNumeric(pkg.date) ? pkg.date : undefined);
+            this.dateInstalled = this.dateInstalled || (isNumeric(pkg.dateInstalled) ? pkg.dateInstalled : undefined);
 
             this.maintUrl             =     this.maintUrl             || pkg.maintUrl;
             this.size                 =     this.size                 || pkg.size;

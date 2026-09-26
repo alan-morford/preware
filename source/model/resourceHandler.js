@@ -2,7 +2,8 @@
 /*global enyo, preware, $L, PalmSystem, console */
 
 // Makes Preware the application that opens .ipk files (from the browser, email, app
-// catalogs...), like the original Preware's resourceHandler.js. Legacy webOS only.
+// catalogs...), like the original Preware's resourceHandler.js. On legacy webOS and on
+// LuneOS, whose application manager (LunaAppManager) keeps the same handler list.
 //
 // check() looks at the current handlers and returns (to the callback) what to ask the user:
 //   {action: "add"}                    Preware is not a handler for .ipk files at all
@@ -59,7 +60,7 @@ enyo.singleton({
         return false;
     },
     check: function (callback) {
-        if (!preware.Platform.isLegacy || !window.PalmSystem) {
+        if (!window.PalmSystem) {
             callback(false);
             return;
         }

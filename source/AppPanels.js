@@ -3,11 +3,9 @@
 
 enyo.kind({
     name: "AppPanels",
-    //legacy webOS: menu always visible on the left, other panels open to its right.
-    kind: preware.Platform.isLegacy ? "preware.ColumnPanels" : "Panels",
-    //FIXME bbito hack for qemux86/Tenderloin landscape compatibility
-    //arrangerKind: "CollapsingArranger",
-    arrangerKind: "CoreNaviArranger",
+    //menu always visible on the left, other panels open to its right; on a phone
+    //one panel at a time. No sliding or zooming transitions (see ColumnPanels).
+    kind: "preware.ColumnPanels",
     peekWidth: 70,   // (600-320)/4
     classes: "app-panels enyo-fill",
     // required ipkgservice
@@ -28,6 +26,7 @@ enyo.kind({
             onbackbutton: "handleBackGesture",
             onPackagesStatusUpdate: "processStatusUpdate",
             onUpdateFeedsFinished: "doneLoading",
+            onListSortChanged: "listSortChanged",
             ondeviceready: "handleDeviceReady"
         },
 
@@ -206,14 +205,12 @@ enyo.kind({
     //Handlers
     create: function (inSender, inEvent) {
         this.inherited(arguments);
-        if (preware.Platform.isLegacy) {
-            //switch the cards inside the columns directly: an animation still running
-            //while ColumnPanels resizes a column left the old card visible next to the new one.
-            [this.$.ScrollerPanel, this.$.TypePanels, this.$.CategoryPanels,
-                this.$.PackagePanels, this.$.PackageDisplayPanels].forEach(function (p) {
-                p.setAnimate(false);
-            });
-        }
+        //switch the cards inside the columns directly: an animation still running
+        //while ColumnPanels resizes a column left the old card visible next to the new one.
+        [this.$.ScrollerPanel, this.$.TypePanels, this.$.CategoryPanels,
+            this.$.PackagePanels, this.$.PackageDisplayPanels].forEach(function (p) {
+            p.setAnimate(false);
+        });
         setTimeout(this.handleDeviceReady.bind(this), 500);
         this.fired = false;
     },
@@ -272,6 +269,9 @@ enyo.kind({
     },
     doReloadList: function () {
         this.launchedForInstall = false;
+        //the progress shows in the first panel: go there (on a phone the other
+        //panels cover it).
+        this.setIndex(this.menuPanelsIndex);
         if (UpdateFeeds.isUpdating()) {
             return; //already loading.
         }
@@ -281,27 +281,11 @@ enyo.kind({
         UpdateFeeds.startUpdateFeeds(true);
         this.$.ScrollerPanel.setIndex(0);
     },
-    reflow: function (inSender) {
-        this.inherited(arguments);
-        if (preware.Platform.isLegacy) {
-            return; //ColumnPanels, no arrangers.
-        }
-        if (enyo.Panels.isScreenNarrow()) {
-            this.setArrangerKind("CoreNaviArranger");
-            this.setDraggable(false);
-            this.$.CategoryPanels.addStyles("box-shadow: 0");
-            this.$.PackagePanels.addStyles("box-shadow: 0");
-            this.$.PackageDisplayPanels.addStyles("box-shadow: 0");
-        } else {
-            //FIXME bbito hack for qemux86/Tenderloin landscape compatibility
-            //this.setArrangerKind("CollapsingArranger");
-            this.setArrangerKind("CoreNaviArranger");
-            this.setDraggable(true);
-            this.$.TypePanels.addStyles("box-shadow: -4px 0px 4px rgba(0,0,0,0.3)");
-            this.$.CategoryPanels.addStyles("box-shadow: -4px 0px 4px rgba(0,0,0,0.3)");
-            this.$.PackagePanels.addStyles("box-shadow: -4px 0px 4px rgba(0,0,0,0.3)");
-            this.$.PackageDisplayPanels.addStyles("box-shadow: -4px 0px 4px rgba(0,0,0,0.3)");
-        }
+    //the sort order preference changed: sort the list shown again.
+    listSortChanged: function (inSender, inEvent) {
+        this.$.packagesMenu.sortPackageList();
+        this.$.PackageRepeater.setCount(0);
+        this.$.PackageRepeater.setCount(this.$.packagesMenu.availablePackages.length);
     },
     //react to package selection in packagesMenu.
     packagesMenuSelected: function (inSender, inEvent) {
@@ -343,13 +327,8 @@ enyo.kind({
         this.$.SpinnerText.setContent(text);
     },
     showTypeAndCategoriesPanels: function (show) {
+        //ColumnPanels shows/hides them on setIndex (isPanelSkipped).
         this.showingTypeAndCategoriesPanels = show;
-        if (preware.Platform.isLegacy) {
-            return; //ColumnPanels shows/hides them on setIndex.
-        }
-        this.$.TypePanels.setShowing(show);
-        this.$.CategoryPanels.setShowing(show);
-        this.render();
     },
     //highlight the tapped list item (one per group), like the menu item.
     markSelected: function (group, inEvent) {

@@ -123,12 +123,11 @@ enyo.kind({
 					{kind: "enyo.FittableColumns", noStretch: true, classes: "settings-item", components: [
 						{tag: "span", classes: "settings-title-picker", content: $L("Default sort"), fit: true},
 						{kind: "onyx.PickerDecorator", onSelect: "sortPolicySelected", components: [
-							{},
+							{name: "sortPolicyButton"}, //sized in sizeSortPolicyButton
 							{kind: "onyx.Picker", name: "sortPolicyPicker", style: "width: 200px;", components: [
 								{content: $L("Category Default"), value: 'default', active: true},
 								{content: $L("Alphabetically"), value: 'alpha'},
-								{content: $L("Last Updated"), value: 'date'},
-								{content: $L("Price"), value: 'price'}
+								{content: $L("Last Updated"), value: 'date'}
 							]}
 						]}
 					]},
@@ -159,6 +158,32 @@ enyo.kind({
 
 		this.inherited(arguments);
 	},
+    showingChanged: function () {
+        this.inherited(arguments);
+        if (this.showing) {
+            this.sizeSortPolicyButton();
+        }
+    },
+    //the picker button takes the width of the option shown: make it as wide as
+    //the widest one (measured, as the text size differs between devices and
+    //languages), so it keeps its size whichever option is chosen.
+    sizeSortPolicyButton: function () {
+        var button = this.$.sortPolicyButton, node = button.hasNode(),
+            content = button.getContent(), items, widest = 0, i;
+        if (this.sortPolicyButtonSized || !node || !node.offsetWidth) {
+            return;
+        }
+        items = this.$.sortPolicyPicker.getClientControls();
+        for (i = 0; i < items.length; i += 1) {
+            button.setContent(items[i].getContent());
+            widest = Math.max(widest, node.offsetWidth);
+        }
+        button.setContent(content);
+        button.applyStyle("-webkit-box-sizing", "border-box");
+        button.applyStyle("box-sizing", "border-box");
+        button.applyStyle("min-width", widest + "px");
+        this.sortPolicyButtonSized = true;
+    },
     updateValues: function () {
         var i, items, cookie = preware.PrefCookie.get();
 
@@ -224,7 +249,10 @@ enyo.kind({
         preware.PrefCookie.put("searchDesc", inEvent.value);
     },
     sortPolicySelected: function (inSender, inEvent) {
-        preware.PrefCookie.put("listSort", inEvent.selected.value);
+        if (preware.PrefCookie.get().listSort !== inEvent.selected.value) {
+            preware.PrefCookie.put("listSort", inEvent.selected.value);
+            enyo.Signals.send("onListSortChanged", {});
+        }
     },
     installIsAvailableChanged: function (inSender, inEvent) {
         preware.PrefCookie.put("listInstalled", inEvent.value);

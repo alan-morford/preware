@@ -151,6 +151,14 @@ enyo.singleton({
 
         this.log("Start Loading Feeds");
         this.downloaded = false;
+        preware.LuneOSFeeds.setUp(this.feedsSetUp.bind(this));
+    },
+    //on LuneOS the default feeds are added at the first start (see preware.LuneOSFeeds)
+    feedsSetUp: function (added) {
+        if (added) {
+            this.log("Added the default feeds, downloading them.");
+            this.onlyLoad = false;
+        }
         preware.DeviceProfile.getDeviceProfile(this.gotDeviceProfile.bind(this), false);
     },
 
