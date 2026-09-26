@@ -31,7 +31,8 @@ enyo.kind({
             onPackageActionRequired: "handlePackageActionRequired",
             onUpdateFeedsFinished: "checkResourceHandler",
             onAskUpdateFeeds: "askUpdateFeeds",
-            onrelaunch: "handleRelaunch"
+            onrelaunch: "handleRelaunch",
+            onkeypress: "typeToSearch"
         },
         {
             name: "searchHeader",
@@ -119,6 +120,34 @@ enyo.kind({
         if (file) {
             this.handleLaunchInstallRequest(this, {params: file});
         }
+    },
+    //A key typed on a physical keyboard (legacy webOS phones, keyboards on LuneOS
+    //devices) while no text field has the focus goes to the search field.
+    typeToSearch: function (inSender, inEvent) {
+        var target = inEvent.target, code = inEvent.charCode || inEvent.keyCode;
+        if (target && (/^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) || target.isContentEditable)) {
+            return; //typing into a text field already
+        }
+        if (inEvent.ctrlKey || inEvent.altKey || inEvent.metaKey || !code || code < 32 || code === 127) {
+            return; //not a character
+        }
+        if (this.dialogShowing()) {
+            return;
+        }
+        if (this.$.searchHeader.startTyping(String.fromCharCode(code))) {
+            inEvent.preventDefault();
+            return true;
+        }
+    },
+    dialogShowing: function () {
+        var names = ["SettingsDialog", "ManageFeedsDialog", "InstallPackageDialog", "RestartDialog",
+                     "ResourceHandlerDialog", "UpdateFeedsDialog", "appMenu"], i;
+        for (i = 0; i < names.length; i += 1) {
+            if (this.$[names[i]] && this.$[names[i]].showing) {
+                return true;
+            }
+        }
+        return false;
     },
     //"Update Feeds: Ask At Launch" preference
     askUpdateFeeds: function (inSender, inEvent) {
