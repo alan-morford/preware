@@ -381,6 +381,8 @@ enyo.kind({
     
     humanFileSize: function(bytes, si) {
     	var thresh = si ? 1000 : 1024;
+    	bytes = parseFloat(bytes);
+    	if (!isFinite(bytes)) return $L("Unknown"); //e.g. installed from an app catalog, not in a feed
     	if(bytes < thresh) return bytes + ' B';
     	var units = si ? ['kB','MB','GB','TB','PB','EB','ZB','YB'] : ['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB'];
     	var u = -1;
