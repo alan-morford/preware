@@ -55,5 +55,11 @@ enyo.kind({
     },
     clear: function () {
         this.$.SearchInput.setValue("");
+    },
+    //hide the keyboard
+    blur: function () {
+        if (this.$.SearchInput.hasNode()) {
+            this.$.SearchInput.node.blur();
+        }
     }
 });

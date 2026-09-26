@@ -27,6 +27,8 @@ enyo.kind({
             onPackagesStatusUpdate: "processStatusUpdate",
             onUpdateFeedsFinished: "doneLoading",
             onListSortChanged: "listSortChanged",
+            onReloadPackages: "reloadPackages",
+            onListInstalledChanged: "listInstalledChanged",
             ondeviceready: "handleDeviceReady"
         },
 
@@ -260,6 +262,8 @@ enyo.kind({
         if (this.displayFromSearch && index === this.packageDisplayPanelsIndex) { //back to the search results.
             this.displayFromSearch = false;
             this.setIndex(this.menuPanelsIndex);
+        } else if (this.isSearching()) { //leave the search, back to where it started.
+            this.endSearch();
         } else if (!this.showingTypeAndCategoriesPanels && index === this.categoryPanelsIndex + 1) { //mind the gap.
             this.setIndex(this.menuPanelsIndex);
         } else {//all panels are showing, that's easy.
@@ -280,6 +284,23 @@ enyo.kind({
         this.$.spinner.show();
         UpdateFeeds.startUpdateFeeds(true);
         this.$.ScrollerPanel.setIndex(0);
+    },
+    //load the downloaded package lists again, without downloading (a preference
+    //that filters packages while they are loaded changed).
+    reloadPackages: function () {
+        if (UpdateFeeds.isUpdating()) {
+            return;
+        }
+        this.setIndex(this.menuPanelsIndex);
+        this.searchHeader.set("disabled", true);
+        this.searchHeader.clear();
+        this.$.spinner.show();
+        this.$.ScrollerPanel.setIndex(0);
+        UpdateFeeds.startUpdateFeeds(false, true);
+    },
+    //"Installed is available" changed: the counts in the menu change with it.
+    listInstalledChanged: function () {
+        this.$.packagesMenu.listOfEverythingChanged(null, preware.PackagesModel.packages);
     },
     //the sort order preference changed: sort the list shown again.
     listSortChanged: function (inSender, inEvent) {
@@ -360,6 +381,25 @@ enyo.kind({
         enyo.job("preware-search", this.doSearch.bind(this, inEvent.value || ""), 300);
         return true;
     },
+    //search results are shown (in the menu panel).
+    isSearching: function () {
+        return this.$.ScrollerPanel.getIndex() === 2;
+    },
+    //clear the search and go back to the panel shown when it started.
+    endSearch: function () {
+        var index = this.indexBeforeSearch || this.menuPanelsIndex;
+        this.searchHeader.clear();
+        this.searchHeader.blur();
+        this.$.ScrollerPanel.setIndex(1);
+        if (this.searchOpenedPackage && index === this.packageDisplayPanelsIndex) {
+            //the package details now show a search result: go to the list before them.
+            index = this.packagePanelsIndex;
+        }
+        this.displayFromSearch = false;
+        this.searchOpenedPackage = false;
+        this.indexBeforeSearch = null;
+        this.setIndex(index);
+    },
     doSearch: function (text) {
         var i, pkg, searchDesc = preware.PrefCookie.get().searchDesc;
         if (this.$.ScrollerPanel.getIndex() === 0) {
@@ -367,8 +407,13 @@ enyo.kind({
         }
         text = text.toLowerCase().trim();
         if (!text) {
-            this.$.ScrollerPanel.setIndex(1);
+            if (this.isSearching()) {
+                this.endSearch();
+            }
             return;
+        }
+        if (!this.isSearching()) {
+            this.indexBeforeSearch = this.getIndex();
         }
         this.searchResults = [];
         for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
@@ -398,6 +443,7 @@ enyo.kind({
         return true;
     },
     searchResultTapped: function (inSender, inEvent) {
+        this.searchOpenedPackage = true;
         this.markSelected("list", inEvent);
         this.$.packageDisplay.setCurrentPackage(this.searchResults[inEvent.index]);
         this.displayFromSearch = true;

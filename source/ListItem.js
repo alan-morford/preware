@@ -30,6 +30,7 @@ enyo.kind({
     ],
     create:    function() {
         this.inherited(arguments);
+        this.addRemoveClass("list-item-has-icon", !!this.icon);
         this.$.ItemTitle.setContent(this.title);
     },
     //show the package icon, or no icon at all if there is none.
@@ -37,9 +38,10 @@ enyo.kind({
         this.$.ItemIcon.setSrc(src || "");
         this.showIcon(!!src);
     },
+    //the title keeps its indent (list-item-has-icon) with or without an icon, so all
+    //titles of a package list line up.
     showIcon: function(show) {
         this.$.ItemIcon.applyStyle("display", show ? "inline-block" : "none");
-        this.addRemoveClass("list-item-has-icon", show);
     },
     //many feed icons are hosted on sites that are gone.
     iconError: function(inSender) {

@@ -40,6 +40,8 @@ enyo.kind({
 								]},                			
                 			]},
                 		]},
+                		//package id and version, read from the file name
+                		{name: "ipkSummary", allowHtml: true, showing: false, style: "color: white; margin: 0 0 12px 10px; line-height: 22px;"},
                 		{ kind: "onyx.Button", content: $L("Browse"), style:"width: 100%;", classes: "onyx-dark", ontap: "browseFiles" },
                         {name: "getInfoButton", kind: "onyx.Button", content: $L("Get Info"), style:"width: 100%; margin-top: 5px;", classes: "onyx-dark", ontap: "getInfo", disabled: true },
                         {name: "installButton", kind: "onyx.Button", content: $L("Install"), style:"width: 100%; margin-top: 5px;", classes: "onyx-dark", ontap: "install", disabled: true },
@@ -198,11 +200,24 @@ enyo.kind({
     },
     doInstall: function (installUrl) {
         enyo.warn("In InstallPackageDialog: " + installUrl);
+        //Opened with a package (e.g. by an app catalog): show it, ready to install,
+        //like the original Preware did. No automatic "Get Info": that downloads the
+        //whole package just to read its details (a minute for a big game), and Install
+        //downloads it again.
+        this.$.Panels.setIndex(this.selectPanelIndex);
         this.$.ipkEdit.setValue(installUrl);
         this.validatePackageLocation();
-        //opened with a package (e.g. as the .ipk handler): show what it is right away.
-        if (installUrl) {
-            this.getInfo();
+    },
+    //show the package id and version, when the file name follows <id>_<version>_<arch>.ipk
+    updateSummary: function () {
+        var name = decodeURIComponent(this.$.filePicker.getFileName(this.$.ipkEdit.getValue() || "")),
+            match = /^([^_\/]+)_([^_\/]+)_[^_\/]+\.ipk$/i.exec(name);
+        if (match) {
+            this.$.ipkSummary.setContent($L("Package: ") + enyo.dom.escape(match[1]) + "<br>" + $L("Version: ") + enyo.dom.escape(match[2]));
+        }
+        if (this.$.ipkSummary.showing !== !!match) {
+            this.$.ipkSummary.setShowing(!!match);
+            this.$.selectPanel.resize(); //keep the Close button in view
         }
     },
     //handlers
@@ -237,6 +252,7 @@ enyo.kind({
     closePopup: function (inSender, inEvent) {
         if (!this.ipkOperation) {
 			this.$.ipkEdit.setValue("");
+			this.$.ipkSummary.hide();
 			this.$.getInfoButton.setDisabled(true);
 			this.$.installButton.setDisabled(true);
             this.hide();
@@ -285,6 +301,7 @@ enyo.kind({
         }
     },
 	validatePackageLocation: function (inSender, inEvent) {
+		this.updateSummary();
 		if (this.$.ipkEdit.getValue() != "")
 		{
 			this.$.getInfoButton.setDisabled(false);

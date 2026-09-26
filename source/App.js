@@ -18,6 +18,7 @@ enyo.kind({
             onLaunchedWithInstallRequest: "handleLaunchInstallRequest",
             onPackageActionRequired: "handlePackageActionRequired",
             onUpdateFeedsFinished: "checkResourceHandler",
+            onAskUpdateFeeds: "askUpdateFeeds",
             onrelaunch: "handleRelaunch"
         },
         {
@@ -42,7 +43,9 @@ enyo.kind({
         {name: "ManageFeedsDialog", kind: "ManageFeedsDialog"},
         {name: "InstallPackageDialog", kind: "InstallPackageDialog", onHide: "installDialogHidden"},
         {name: "RestartDialog", kind: "Preware.ChoiceDialog", title: $L("Restart Required"), onAction: "restartAccepted", onDismiss: "restartDeclined"},
-        {name: "ResourceHandlerDialog", kind: "Preware.ChoiceDialog", title: $L("FileType Association"), onAction: "resourceHandlerAccepted", onDismiss: "resourceHandlerDeclined"},
+        {name: "UpdateFeedsDialog", kind: "Preware.ChoiceDialog", title: $L("Update Feeds"), okLabel: $L("Update"), cancelLabel: $L("Not Now"),
+            body: $L("Check the feeds for new and updated packages now?"), onAction: "updateFeedsYes", onDismiss: "updateFeedsNo"},
+                {name: "ResourceHandlerDialog", kind: "Preware.ChoiceDialog", title: $L("FileType Association"), onAction: "resourceHandlerAccepted", onDismiss: "resourceHandlerDeclined"},
         {
             kind: "AppMenu", //onSelect: "appMenuItemSelected",
             style: "overflow: hidden;",
@@ -103,6 +106,27 @@ enyo.kind({
         var file = preware.ResourceHandler.launchFile(inEvent);
         if (file) {
             this.handleLaunchInstallRequest(this, {params: file});
+        }
+    },
+    //"Update Feeds: Ask At Launch" preference
+    askUpdateFeeds: function (inSender, inEvent) {
+        this.updateFeedsCallback = inEvent.callback;
+        this.$.UpdateFeedsDialog.show();
+    },
+    updateFeedsYes: function () {
+        this.updateFeedsAnswered(true);
+        return true;
+    },
+    updateFeedsNo: function () {
+        this.updateFeedsAnswered(false);
+        return true;
+    },
+    updateFeedsAnswered: function (update) {
+        var callback = this.updateFeedsCallback;
+        this.$.UpdateFeedsDialog.hide();
+        this.updateFeedsCallback = null;
+        if (callback) {
+            callback(update);
         }
     },
     //offer to make Preware the app that opens .ipk files (once per launch).

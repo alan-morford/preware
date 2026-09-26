@@ -78,7 +78,10 @@ enyo.singleton({
     //IPKGService.setAuthParams. This probably is necessary for
     //App Catalog apps...?
     //If that does not work, we just get the machine name and are done.
-    startUpdateFeeds: function (force) {
+    //force: download the feeds whatever the "Update Feeds" preference says.
+    //loadOnly: only load the package lists already downloaded (e.g. after a preference
+    //change that filters packages), without downloading or asking.
+    startUpdateFeeds: function (force, loadOnly) {
         // two updates at the same time download the same feeds twice, which can
         // wedge the legacy package manager service.
         if (this.isUpdating()) {
@@ -136,8 +139,7 @@ enyo.singleton({
             }
             break;
         case "ask":
-            this.log("Ask not yet implemented! Falling back to manual.");
-            this.onlyLoad = true;
+            this.onlyLoad = true; //decided below
             break;
         default:
             this.onlyLoad = true;
@@ -147,8 +149,20 @@ enyo.singleton({
         if (force) {
             this.log("Forced to download, will download anyway.");
             this.onlyLoad = false;
+        } else if (loadOnly) {
+            this.onlyLoad = true;
+        } else if (preware.PrefCookie.get().updateInterval === "ask") {
+            // App shows the question, and calls back with true to download the feeds.
+            enyo.Signals.send("onAskUpdateFeeds", {callback: function (update) {
+                this.onlyLoad = !update;
+                this.continueUpdateFeeds();
+            }.bind(this)});
+            return true;
         }
-
+        this.continueUpdateFeeds();
+        return true;
+    },
+    continueUpdateFeeds: function () {
         this.log("Start Loading Feeds");
         this.downloaded = false;
         preware.LuneOSFeeds.setUp(this.feedsSetUp.bind(this));

@@ -162,7 +162,20 @@ enyo.kind({
         this.inherited(arguments);
         if (this.showing) {
             this.sizeSortPolicyButton();
+        } else {
+            this.applyListChanges();
         }
+    },
+    //preferences that change which packages are listed take effect when the dialog closes.
+    applyListChanges: function () {
+        if (this.reloadNeeded) {
+            //packages for other devices are left out while the lists are loaded
+            enyo.Signals.send("onReloadPackages", {});
+        } else if (this.recountNeeded) {
+            enyo.Signals.send("onListInstalledChanged", {});
+        }
+        this.reloadNeeded = false;
+        this.recountNeeded = false;
     },
     //the picker button takes the width of the option shown: make it as wide as
     //the widest one (measured, as the text size differs between devices and
@@ -240,7 +253,10 @@ enyo.kind({
         preware.PrefCookie.put("useTuckerbox", inEvent.value);
     },
     ignoreDeviceCompatChanged: function (inSender, inEvent) {
-        preware.PrefCookie.put("ignoreDevices", inEvent.value);
+        if (preware.PrefCookie.get().ignoreDevices !== inEvent.value) {
+            preware.PrefCookie.put("ignoreDevices", inEvent.value);
+            this.reloadNeeded = true;
+        }
     },
     showAvailableTypesChanged: function (inSender, inEvent) {
         preware.PrefCookie.put("showAvailableTypes", inEvent.value);
@@ -255,6 +271,9 @@ enyo.kind({
         }
     },
     installIsAvailableChanged: function (inSender, inEvent) {
-        preware.PrefCookie.put("listInstalled", inEvent.value);
+        if (preware.PrefCookie.get().listInstalled !== inEvent.value) {
+            preware.PrefCookie.put("listInstalled", inEvent.value);
+            this.recountNeeded = true;
+        }
     }
 });
