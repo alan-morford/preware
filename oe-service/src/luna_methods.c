@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <pthread.h>
+#include <fcntl.h>
 #include <signal.h>
 #include <sys/select.h>
 #include <sys/wait.h>
@@ -711,9 +712,34 @@ bool set_auth_params_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
 //
 // Get the list of opkg configuration files, and return them and their contents.
 //
+//
+// The package manager's directories under /media/cryptofs/apps, and an empty
+// package status file (it has none until the first package is installed).
+// The package creates them at image build time, but where /media/cryptofs is
+// mounted from the data partition at boot (Halium devices, e.g. the BlackBerry
+// KEY2) those are hidden: feed configs could not be listed or added, feeds not
+// downloaded, and the package status not read. Creates only what is missing,
+// so it is called by every method that needs them.
+//
+static void prepare_directories(void) {
+  static const char *dirs[] = {
+    "/media/cryptofs/apps/etc/opkg",
+    "/media/cryptofs/apps/var/lib/opkg/cache",
+    "/media/cryptofs/apps/var/lib/opkg/lists",
+    NULL
+  };
+  for (int i = 0; dirs[i]; i++) {
+    g_mkdir_with_parents(dirs[i], 0755);
+  }
+  int fd = open("/media/cryptofs/apps/var/lib/opkg/status", O_WRONLY | O_CREAT, 0644);
+  if (fd >= 0) close(fd);
+}
+
 bool get_configs_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
+
+  prepare_directories();
 
   // Local buffer to store the config filename
   char filename[MAXNAMLEN];
@@ -935,6 +961,8 @@ void *update_thread(void *arg) {
 bool update_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
+
+  prepare_directories();
 
   pthread_t tid;
 
@@ -1187,6 +1215,8 @@ bool get_status_file_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
 
+  prepare_directories();
+
   return read_file(message, "/media/cryptofs/apps/var/lib/opkg/status");
 
   LSErrorPrint(&lserror, stderr);
@@ -1383,6 +1413,8 @@ bool add_config_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
   LSError lserror;
   LSErrorInit(&lserror);
 
+  prepare_directories();
+
   json_object *object = json_tokener_parse(LSMessageGetPayload(message));
   json_object *id;
 
@@ -1537,9 +1569,8 @@ bool do_download(LSMessage *message, bool gzipped, const char *feed, const char 
   sprintf(pathname, "/media/cryptofs/apps/var/lib/opkg/cache/%s", feed);
 
   // The download below writes into the cache through a shell redirect, which
-  // does not create it. The package sets it up at image build time, but where
-  // /media/cryptofs is mounted over that at boot it does not exist.
-  g_mkdir_with_parents("/media/cryptofs/apps/var/lib/opkg/cache", 0755);
+  // does not create it.
+  prepare_directories();
 
   char headers[MAXLINLEN];
 
