@@ -12,12 +12,16 @@ enyo.singleton({
     serviceApiVersion: 0,
     // how many feeds are downloaded at the same time. Downloads spend most of their
     // time waiting on the network, so running several at once hides most of that wait.
-    maxParallelDownloads: 6,
+    // Kept low: the legacy service's download threads sometimes hang, more often
+    // with several at once (see watchFeed).
+    maxParallelDownloads: 3,
     // least time between status repaints (ms), the progress of several downloads
     // arrives faster than it is useful to redraw.
     progressRedrawMs: 400,
-    // a feed download that has not answered for this long counts as failed (ms).
-    feedTimeoutMs: 60000,
+    // a feed download that has not answered for this long counts as stalled (ms).
+    feedTimeoutMs: 30000,
+    // wait after restarting the service before trying the stalled feeds again (ms).
+    serviceRestartMs: 3000,
     // an update is running (time it started, 0 if none).
     updateStarted: 0,
     // an update that has not finished after this long is assumed dead (ms).
@@ -272,19 +276,28 @@ enyo.singleton({
 
     //download all feeds, several at once if the service supports it.
     downloadFeeds: function () {
-        var i, atOnce = this.serviceApiVersion >= this.parallelServiceVersion ? this.maxParallelDownloads : 1;
+        var i, all = [];
+        for (i = 0; i < this.feeds.length; i += 1) {
+            all.push(i);
+        }
+        this.error = false;
+        this.retrying = false;
+        this.stalledFeeds = [];
+        this.startDownloads(all, this.serviceApiVersion >= this.parallelServiceVersion ? this.maxParallelDownloads : 1);
+    },
+    //download the feeds with these numbers, atOnce at a time.
+    startDownloads: function (nums, atOnce) {
+        var i;
+        this.downloadQueue = nums.slice();
         this.downloadActive = {};
-        this.downloadNext = 0;
         this.downloadDone = 0;
+        this.downloadTotal = nums.length;
         this.downloadStatus = "";
         this.downloadStatusFeed = "";
         this.lastProgressDraw = 0;
-        this.error = false;
-
-        atOnce = Math.min(atOnce, this.feeds.length);
+        atOnce = Math.min(atOnce, nums.length);
         for (i = 0; i < atOnce; i += 1) {
-            this.downloadFeedRequest(this.downloadNext);
-            this.downloadNext += 1;
+            this.downloadFeedRequest(this.downloadQueue.shift());
         }
     },
     //show progress, naming only the feed we last heard from so the message keeps its size.
@@ -303,23 +316,26 @@ enyo.singleton({
                 }
             }
         }
-        msg = $L("<strong>Downloading Feed Information</strong><br>") +
-            this.downloadDone + $L(" of ") + this.feeds.length + "<br>" +
+        msg = (this.retrying ? $L("<strong>Trying Feeds Again</strong><br>") : $L("<strong>Downloading Feed Information</strong><br>")) +
+            this.downloadDone + $L(" of ") + this.downloadTotal + "<br>" +
             (name || "&nbsp;") + "<br>" + (this.downloadStatus || "&nbsp;");
         enyo.Signals.send("onPackagesStatusUpdate", {message: msg});
     },
     //trigger update of one feed:
     downloadFeedRequest: function (num) {
         this.downloadActive[num] = this.feeds[num];
+        //a reply for an earlier attempt at this feed (a stalled one) is ignored
+        this.feedAttempt = this.feedAttempt || {};
+        this.feedAttempt[num] = (this.feedAttempt[num] || 0) + 1;
         this.watchFeed(num);
         this.displayDownloadProgress(true);
 
-        preware.IPKGService.downloadFeed(this.downloadFeedResponse.bind(this, num),
+        preware.IPKGService.downloadFeed(this.downloadFeedResponse.bind(this, num, this.feedAttempt[num]),
                                         this.feeds[num].gzipped, this.feeds[num].name, this.feeds[num].url);
     },
-    downloadFeedResponse: function (num, payload) {
+    downloadFeedResponse: function (num, attempt, payload) {
         // this feed is already finished with, ignore late payloads
-        if (!this.downloadActive[num]) {
+        if (!this.downloadActive[num] || attempt !== this.feedAttempt[num]) {
             return;
         }
         this.watchFeed(num);
@@ -337,19 +353,24 @@ enyo.singleton({
         }
     },
     //(re)start the timer that gives up on a feed download which stopped answering.
+    //A running download reports its progress all the time, so silence means it is stuck:
+    //the legacy service's download threads can hang (seen with several at once).
     watchFeed: function (num) {
         enyo.job("preware-feed-" + num, this.feedTimedOut.bind(this, num), this.feedTimeoutMs);
     },
     feedTimedOut: function (num) {
         if (this.downloadActive[num]) {
-            this.log(this.feeds[num].name + ": download timed out");
-            this.error = true;
-            this.serviceStuck = true;
+            this.log(this.feeds[num].name + ": download stopped answering");
+            if (this.retrying) {
+                this.error = true;
+                this.serviceStuck = true;
+            } else {
+                this.stalledFeeds.push(num); //tried again when the others are done
+            }
             this.downloadFeedFinished(num);
         }
     },
     downloadFeedFinished: function (num) {
-        var msg;
         enyo.job.stop("preware-feed-" + num);
         if (this.downloadStatusFeed === this.feeds[num].name) {
             this.downloadStatusFeed = "";
@@ -359,20 +380,33 @@ enyo.singleton({
         this.downloadDone += 1;
 
         // start the next feed in line, if there is one
-        if (this.downloadNext < this.feeds.length) {
-            this.downloadFeedRequest(this.downloadNext);
-            this.downloadNext += 1;
+        if (this.downloadQueue.length > 0) {
+            this.downloadFeedRequest(this.downloadQueue.shift());
             return;
         }
-        if (this.downloadDone < this.feeds.length) {
+        if (this.downloadDone < this.downloadTotal) {
             this.displayDownloadProgress(true);
             return; // still waiting on the other downloads
         }
 
-        // we're done
+        if (this.stalledFeeds.length > 0 && !this.retrying) {
+            // restart the service, then download the stalled feeds again, one at a time
+            this.log("Restarting the package manager service, then trying " + this.stalledFeeds.length + " feeds again.");
+            this.retrying = true;
+            enyo.Signals.send("onPackagesStatusUpdate", {message: $L("<strong>Some feeds stopped responding</strong><br>Trying them again...")});
+            preware.IPKGService.restart(function () {});
+            setTimeout(function () {
+                this.startDownloads(this.stalledFeeds, 1);
+            }.bind(this), this.serviceRestartMs);
+            return;
+        }
+        this.allFeedsDownloaded();
+    },
+    allFeedsDownloaded: function () {
+        var msg;
         this.downloaded = true;
         if (this.serviceStuck) {
-            // the service stopped answering, restart it so the next update works again.
+            // the service stopped answering again, restart it so the next update works.
             this.log("Restarting the package manager service.");
             preware.IPKGService.restart(function () {});
         }

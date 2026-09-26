@@ -33,9 +33,10 @@ enyo.singleton({
             },
             generalSuccess = function (inSender, inResponse) {
                 // console.log(JSON.stringify(inSender.request), "IPKService#generalSuccess: " + JSON.stringify(inResponse));
-                if (!subscribe) {
-                    done();
-                } else if (finished(inResponse)) {
+                // Close the request once it is answered: a request left open gets an
+                // error when the service goes away (restarted), which would call its
+                // callback a second time (and run e.g. the start-up checks again).
+                if (!subscribe || finished(inResponse)) {
                     request.cancel();
                     done();
                 }
@@ -45,9 +46,7 @@ enyo.singleton({
             },
             generalFailure = function (inSender, inError) {
                 console.error("IPKGService#generalFailure: " + JSON.stringify(inError));
-                if (subscribe) {
-                    request.cancel();
-                }
+                request.cancel();
                 done();
                 if (callback) {
                     callback(inError);
