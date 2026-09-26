@@ -1,15 +1,21 @@
 Preware 2
 =======
-Preware 2 is the LuneOS on-device homebrew installer.
+Preware 2 is the on-device homebrew installer for LuneOS and legacy webOS
+(Palm/HP webOS 2.x/3.x). One package works on both.
 
-The webos-ports feed is enabled by default, and other feeds
+Its app id is `com.palm.app.preware2` on both (it was `org.webosports.app.preware`):
+legacy webOS only lets apps in the `com.palm` namespace load the files of other apps,
+which Preware needs to show the icons of installed apps. The original Mojo Preware
+keeps `org.webosinternals.preware`, so either or both can be installed.
+
+The default feeds are enabled at the first start, and other feeds
 can be enabled or added by selecting `Manage Feeds` from
 the app menu.  Downloaded packages can be installed by
 selection `Install Package` from the app menu.
 
 Building/Installation
 -------
-At present, this only runs under LuneOS 
+It runs on LuneOS and legacy webOS devices only
 (no mocking is set up to develop in the browser).
 
 To rebuild and install on a LuneOS device attached via USB, run this command in the app directory:
@@ -25,10 +31,8 @@ There it uses the package manager service of the original Preware
 default feeds, instead of `org.webosports.service.ipkg`. `preware.Platform`
 (`source/model/platform.js`) decides which one to use from the user agent.
 
-To build, run `./build-legacy.sh`. It produces `bin/com.palm.app.preware2_<version>_arm.ipk`.
-The legacy build uses the app id `com.palm.app.preware2`: legacy webOS only lets apps in the
-`com.palm` namespace load files of other apps, which is needed to show the icons of installed apps.
-The package can be installed with `palm-install`, WebOS Quick Install or the original Preware.
+To build the package for both, run `./build-legacy.sh`. It produces
+`bin/com.palm.app.preware2_<version>_arm.ipk`, which can be installed with `palm-install`, WebOS Quick Install or the original Preware.
 The device must be in developer mode.
 
 On install, `legacy/pmPostInstall.script` runs as root and

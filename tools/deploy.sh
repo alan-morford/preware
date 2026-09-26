@@ -38,7 +38,7 @@ while [ "$1" != "" ]; do
 #            cp "$SRC"/control/* "$DEST"/control
             
             # install
-            adb push "$DEST" /usr/palm/applications/org.webosports.app.preware
+            adb push "$DEST" /usr/palm/applications/com.palm.app.preware2
             adb shell systemctl restart luna-next
             
             # enable inspection of web views

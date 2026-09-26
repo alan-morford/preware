@@ -1,7 +1,7 @@
 #!/bin/bash
 
 #build
-node enyo/tools/deploy.js -o deploy/org.webosports.app.preware
+node enyo/tools/deploy.js -o deploy/com.palm.app.preware2
 
 #figure out how to deploy
 DEVICE=1
@@ -22,11 +22,11 @@ if [ "$3" != "" ]; then
     PORT=$3
 fi
 
-# launchCommand="/usr/bin/luna-send -n 10 -f luna://com.palm.applicationManager/open '{ \"id\": \"org.webosports.app.preware\", \"params\": { \"type\": \"install\", \"file\":\"http:\/\/packages.webosarchive.com/AppPackages/com.jonandnic.enyo.webbtracker_1.0.1_all.ipk\" } }'"
-launchCommand="/usr/bin/luna-send -n 10 -f luna://com.palm.applicationManager/open '{ \"id\": \"org.webosports.app.preware\", \"params\": { } }'"
+# launchCommand="/usr/bin/luna-send -n 10 -f luna://com.palm.applicationManager/open '{ \"id\": \"com.palm.app.preware2\", \"params\": { \"type\": \"install\", \"file\":\"http:\/\/packages.webosarchive.com/AppPackages/com.jonandnic.enyo.webbtracker_1.0.1_all.ipk\" } }'"
+launchCommand="/usr/bin/luna-send -n 10 -f luna://com.palm.applicationManager/open '{ \"id\": \"com.palm.app.preware2\", \"params\": { } }'"
 if [ $DEVICE -eq 1 ]; then
     #deploy for connected device
-    adb push deploy/org.webosports.app.preware /usr/palm/applications/org.webosports.app.preware
+    adb push deploy/com.palm.app.preware2 /usr/palm/applications/com.palm.app.preware2
     adb shell restart luna-next
     sleep 15
     adb shell $launchCommand
@@ -34,7 +34,7 @@ if [ $DEVICE -eq 1 ]; then
     exit
 else
     #deploy for emulator
-    scp -r -P $PORT deploy/org.webosports.app.preware root@$ADDRESS:/usr/palm/applications/
+    scp -r -P $PORT deploy/com.palm.app.preware2 root@$ADDRESS:/usr/palm/applications/
     ssh root@$ADDRESS -p $PORT restart luna-next
     sleep 5
     ssh root@$ADDRESS -p $PORT $launchCommand

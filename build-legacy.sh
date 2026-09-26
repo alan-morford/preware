@@ -8,14 +8,15 @@
 # with the original Preware's default feeds from legacy/pmPostInstall.script.
 set -e
 cd "$(dirname "$0")"
-# On legacy webOS only apps in the com.palm namespace may load files of other apps,
-# which Preware needs to show the icons of installed apps. (LuneOS keeps its own id.)
-APPID=com.palm.app.preware2
+# The app id (appinfo.json) is com.palm.app.preware2 on every platform: on legacy
+# webOS only apps in the com.palm namespace may load files of other apps, which
+# Preware needs to show the icons of installed apps. The original Preware keeps
+# org.webosinternals.preware, so both can be installed.
+APPID=$(node -e 'console.log(require("./appinfo.json").id)')
 VERSION=$(node -e 'console.log(require("./appinfo.json").version)')
 OUT=deploy/$APPID
 rm -rf "$OUT"
 node enyo/tools/deploy.js -o "$OUT"
-node -e 'var f=process.argv[1], a=JSON.parse(require("fs").readFileSync(f)); a.id=process.argv[2]; require("fs").writeFileSync(f, JSON.stringify(a, null, "\t"));' "$OUT/appinfo.json" "$APPID"
 if [ "$1" = "--debug" ]; then
     echo "including debug hook"
     cat debug/DebugHook.js >> "$OUT/build/app.js"
