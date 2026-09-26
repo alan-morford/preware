@@ -1510,6 +1510,11 @@ bool do_download(LSMessage *message, bool gzipped, const char *feed, const char 
   char pathname[MAXNAMLEN];
   sprintf(pathname, "/media/cryptofs/apps/var/lib/opkg/cache/%s", feed);
 
+  // The download below writes into the cache through a shell redirect, which
+  // does not create it. The package sets it up at image build time, but where
+  // /media/cryptofs is mounted over that at boot it does not exist.
+  g_mkdir_with_parents("/media/cryptofs/apps/var/lib/opkg/cache", 0755);
+
   char headers[MAXLINLEN];
 
   // Too big to sit on the thread stack, and needed for the whole call.
