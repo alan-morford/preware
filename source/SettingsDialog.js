@@ -69,7 +69,7 @@ enyo.kind({
 					{kind: "enyo.FittableColumns", noStretch: true, classes: "settings-item", components: [
 						{tag: "span", classes: "settings-title-picker", content: $L("Update Feeds"), fit: true},
 						{kind: "onyx.PickerDecorator", onSelect: "updatePolicySelected", components: [
-							{},
+							{name: "updatePolicyButton"}, //sized in sizePickerButtons
 							{kind: "onyx.Picker", name: "updatePolicyPicker", style: "width: 200px;", components: [
 								{content: $L("Every Launch"), value: "launch", active: true},
 								{content: $L("Once Daily"), value: "daily"},
@@ -123,7 +123,7 @@ enyo.kind({
 					{kind: "enyo.FittableColumns", noStretch: true, classes: "settings-item", components: [
 						{tag: "span", classes: "settings-title-picker", content: $L("Default sort"), fit: true},
 						{kind: "onyx.PickerDecorator", onSelect: "sortPolicySelected", components: [
-							{name: "sortPolicyButton"}, //sized in sizeSortPolicyButton
+							{name: "sortPolicyButton"}, //sized in sizePickerButtons
 							{kind: "onyx.Picker", name: "sortPolicyPicker", style: "width: 200px;", components: [
 								{content: $L("Category Default"), value: 'default', active: true},
 								{content: $L("Alphabetically"), value: 'alpha'},
@@ -161,7 +161,7 @@ enyo.kind({
     showingChanged: function () {
         this.inherited(arguments);
         if (this.showing) {
-            this.sizeSortPolicyButton();
+            this.sizePickerButtons();
         } else {
             this.applyListChanges();
         }
@@ -177,25 +177,38 @@ enyo.kind({
         this.reloadNeeded = false;
         this.recountNeeded = false;
     },
-    //the picker button takes the width of the option shown: make it as wide as
-    //the widest one (measured, as the text size differs between devices and
-    //languages), so it keeps its size whichever option is chosen.
-    sizeSortPolicyButton: function () {
-        var button = this.$.sortPolicyButton, node = button.hasNode(),
-            content = button.getContent(), items, widest = 0, i;
-        if (this.sortPolicyButtonSized || !node || !node.offsetWidth) {
+    //A picker button takes the width of the option shown. Make the picker buttons as
+    //wide as the widest option of any of them (measured, as the text size differs
+    //between devices and languages), so they keep one size whichever option is chosen.
+    sizePickerButtons: function () {
+        var pickers = [[this.$.updatePolicyButton, this.$.updatePolicyPicker],
+                       [this.$.sortPolicyButton, this.$.sortPolicyPicker]],
+            widest = 0, i, j, button, node, content, items;
+        if (this.pickerButtonsSized) {
             return;
         }
-        items = this.$.sortPolicyPicker.getClientControls();
-        for (i = 0; i < items.length; i += 1) {
-            button.setContent(items[i].getContent());
-            widest = Math.max(widest, node.offsetWidth);
+        for (i = 0; i < pickers.length; i += 1) {
+            button = pickers[i][0];
+            node = button.hasNode();
+            if (!node || !node.offsetWidth) {
+                return; //not laid out yet, try again next time the dialog shows
+            }
+            content = button.getContent();
+            items = pickers[i][1].getClientControls();
+            for (j = 0; j < items.length; j += 1) {
+                button.setContent(items[j].getContent());
+                widest = Math.max(widest, node.offsetWidth);
+            }
+            button.setContent(content);
         }
-        button.setContent(content);
-        button.applyStyle("-webkit-box-sizing", "border-box");
-        button.applyStyle("box-sizing", "border-box");
-        button.applyStyle("min-width", widest + "px");
-        this.sortPolicyButtonSized = true;
+        for (i = 0; i < pickers.length; i += 1) {
+            button = pickers[i][0];
+            button.applyStyle("-webkit-box-sizing", "border-box");
+            button.applyStyle("box-sizing", "border-box");
+            button.applyStyle("min-width", widest + "px");
+        }
+        this.pickerButtonsSized = true;
+        this.resize(); //the rows lay out again around the wider buttons
     },
     updateValues: function () {
         var i, items, cookie = preware.PrefCookie.get();
