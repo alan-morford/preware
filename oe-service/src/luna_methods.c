@@ -1808,7 +1808,27 @@ static bool appinstaller_install(LSMessage *message, const char *pkg, const char
   return installed;
 }
 
+static bool do_install_package(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc);
+
+//
+// Install a package, then remove the file if it was downloaded for this: once
+// installed (or failed) it is of no further use, and nothing else ever removes
+// it. A package the caller already had in /media/internal/.developer, given
+// as a file:// URL there, is installed in place and left alone.
+//
 bool do_install(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc) {
+  bool result = do_install_package(message, filename, pkg, url, useSvc);
+
+  if (strncmp(url, "file:///media/internal/.developer/", 34)) {
+    char pathname[MAXNAMLEN];
+    snprintf(pathname, sizeof(pathname), "/media/internal/.developer/%s", filename);
+    unlink(pathname);
+  }
+
+  return result;
+}
+
+static bool do_install_package(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc) {
   LSError lserror;
   LSErrorInit(&lserror);
 
