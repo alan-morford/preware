@@ -9,10 +9,6 @@ enyo.singleton({
     // legacy webOS uses the package manager service installed by the original Preware.
     serviceName: function () {
         return this.isLegacy ? "org.webosinternals.ipkgservice" : "org.webosports.service.ipkg";
-    },
-    // The TouchPad has no gesture area, so the toolbar grabber is always shown and tapping it goes back.
-    alwaysShowGrabber: function () {
-        return this.isLegacy;
     }
 });
 

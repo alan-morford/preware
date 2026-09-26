@@ -104,6 +104,11 @@ enyo.singleton({
     list_configs: function (callback) {
         var self = this;
         return this.doServiceCall(function (payload) {
+            //LuneOS's stock service answers an empty feed folder (a fresh phone)
+            //without a configs array: that is an empty list, not an error.
+            if (payload && payload.returnValue !== false && !payload.configs) {
+                payload.configs = [];
+            }
             if (self.configPrefix && payload && payload.configs) {
                 payload.configs = self.ownConfigs(payload.configs);
             }
