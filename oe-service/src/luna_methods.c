@@ -1732,47 +1732,52 @@ bool feed_download_method(LSHandle* lshandle, LSMessage *message, void *ctx) {
 }
 
 //
-// Install a package through appinstalld and follow it to its end.
+// Call appinstalld (install or remove) and follow the operation to its end.
 //
-// appinstalld answers a subscribed install with a status message for every
-// step (ipk parsing, app closing, installing, ...) and ends with the state
-// "installed" or "install failed" - about 17 messages for a successful install.
-// It keeps the subscription open afterwards, so luna-send never exits by
-// itself; it is started without a shell, so that it can be ended once the
-// install is over. The states are passed on as status messages, as before.
-// run_command_buffer receives the output, like run_command().
+// appinstalld answers a subscribed install or remove with a status message for
+// every step (ipk parsing, app closing, installing / removing, ...) and ends with
+// a final state: "installed" or "install failed" (about 17 messages for an
+// install), "removed" or "remove failed" (about 15 for a remove). It keeps the
+// subscription open afterwards, so luna-send never exits by itself; it is
+// started without a shell, so that it can be ended once the operation is over.
+// A package appinstalld does not know (e.g. installed by opkg, a PDK app) is
+// refused at once with a single reply ("No such id"). The states are passed on
+// as status messages, as before. run_command_buffer receives the output, like
+// run_command().
 //
 #define APPINSTALLER_IDLE_TIMEOUT 300 // seconds without a message from appinstalld
 
-static bool appinstaller_install(LSMessage *message, const char *pkg, const char *pathname) {
+typedef enum {
+  APPINSTALLER_DONE,      // reached doneState
+  APPINSTALLER_FAILED,    // reached failState, went quiet, or ended early
+  APPINSTALLER_REFUSED    // refused outright (returnValue false before any state)
+} appinstaller_result;
+
+static appinstaller_result appinstaller_follow(LSMessage *message, const char *method,
+					       const char *payload, const char *doneState,
+					       const char *failState) {
   LSError lserror;
   LSErrorInit(&lserror);
 
-  bool installed = false, finished = false, first = true;
+  appinstaller_result result = APPINSTALLER_FAILED;
+  bool finished = false, first = true, anyState = false;
   int fds[2];
+  char uri[128];
 
-  // The id and path come from the caller: let json-c do the quoting.
-  json_object *params = json_object_new_object();
-  json_object_object_add(params, "subscribe", json_object_new_boolean(1));
-  json_object_object_add(params, "id", json_object_new_string(pkg));
-  json_object_object_add(params, "ipkUrl", json_object_new_string(pathname));
-  char payload[MAXLINLEN];
-  g_strlcpy(payload, json_object_to_json_string(params), sizeof(payload));
-  json_object_put(params);
+  snprintf(uri, sizeof(uri), "luna://com.webos.appInstallService/%s", method);
 
-  if (pipe(fds)) return false;
+  if (pipe(fds)) return APPINSTALLER_FAILED;
 
   pid_t pid = fork();
   if (pid < 0) {
     close(fds[0]); close(fds[1]);
-    return false;
+    return APPINSTALLER_FAILED;
   }
   if (!pid) {
     dup2(fds[1], STDOUT_FILENO);
     dup2(fds[1], STDERR_FILENO);
     close(fds[0]); close(fds[1]);
-    execl("/usr/bin/luna-send", "luna-send", "-i",
-	  "luna://com.webos.appInstallService/install", payload, (char *)NULL);
+    execl("/usr/bin/luna-send", "luna-send", "-i", uri, payload, (char *)NULL);
     _exit(127);
   }
   close(fds[1]);
@@ -1808,22 +1813,24 @@ static bool appinstaller_install(LSMessage *message, const char *pkg, const char
 
     if (state && json_object_is_type(state, json_type_string)) {
       const char *st = json_object_get_string(state);
+      anyState = true;
       snprintf(buffer, MAXBUFLEN, "{\"returnValue\": true, \"stage\": \"status\", \"status\": \"%s\"}",
 	       json_escape_str_r(esc_buffer, MAXBUFLEN, (char *)st));
       if (!LSMessageRespond(message, buffer, &lserror)) {
 	LSErrorPrint(&lserror, stderr);
 	LSErrorFree(&lserror);
       }
-      if (!strcmp(st, "installed")) {
-	installed = true;
+      if (!strcmp(st, doneState)) {
+	result = APPINSTALLER_DONE;
 	finished = true;
       }
-      else if (!strcmp(st, "install failed")) {
+      else if (!strcmp(st, failState)) {
 	finished = true;
       }
     }
     else if (ret && !json_object_get_boolean(ret)) {
-      finished = true; // refused outright
+      if (!anyState) result = APPINSTALLER_REFUSED;
+      finished = true;
     }
     if (reply) json_object_put(reply);
   }
@@ -1832,7 +1839,31 @@ static bool appinstaller_install(LSMessage *message, const char *pkg, const char
   if (fp) fclose(fp); else close(fds[0]);
   waitpid(pid, NULL, 0);
 
-  return installed;
+  return result;
+}
+
+static bool appinstaller_install(LSMessage *message, const char *pkg, const char *pathname) {
+  // The id and path come from the caller: let json-c do the quoting.
+  json_object *params = json_object_new_object();
+  json_object_object_add(params, "subscribe", json_object_new_boolean(1));
+  json_object_object_add(params, "id", json_object_new_string(pkg));
+  json_object_object_add(params, "ipkUrl", json_object_new_string(pathname));
+  char payload[MAXLINLEN];
+  g_strlcpy(payload, json_object_to_json_string(params), sizeof(payload));
+  json_object_put(params);
+
+  return appinstaller_follow(message, "install", payload, "installed", "install failed") == APPINSTALLER_DONE;
+}
+
+static appinstaller_result appinstaller_remove(LSMessage *message, const char *pkg) {
+  json_object *params = json_object_new_object();
+  json_object_object_add(params, "subscribe", json_object_new_boolean(1));
+  json_object_object_add(params, "id", json_object_new_string(pkg));
+  char payload[MAXLINLEN];
+  g_strlcpy(payload, json_object_to_json_string(params), sizeof(payload));
+  json_object_put(params);
+
+  return appinstaller_follow(message, "remove", payload, "removed", "remove failed");
 }
 
 static bool do_install_package(LSMessage *message, const char *filename, const char *pkg, const char *url, bool useSvc);
@@ -2129,29 +2160,48 @@ bool do_remove(LSMessage *message, const char *package, bool replace, bool *remo
   char appinfo[MAXLINLEN];
   sprintf(appinfo, "/media/cryptofs/apps/usr/palm/applications/%s/appinfo.json", package);
 
+  // An app goes through appinstalld, followed to its end (it sends about 15
+  // messages; "luna-send -n 10" stopped listening before the remove was over,
+  // and waited forever on a package appinstalld refuses with a single reply).
+  // A package appinstalld does not know - installed by opkg, or an app type it
+  // does not handle, such as PDK apps - is removed with opkg instead.
+  bool useOpkg = true;
   if (!stat(appinfo, &info)) {
-    snprintf(command, MAXLINLEN,
-	     "/usr/bin/luna-send -n 10 luna://com.webos.appInstallService/remove '{\"subscribe\":true, \"id\": \"%s\"}' 2>&1", package);
+    strcpy(run_command_buffer, "{\"stdOut\": [");
+    appinstaller_result result = appinstaller_remove(message, package);
+    if (result == APPINSTALLER_DONE) {
+      strcat(run_command_buffer, "], \"returnValue\": true, \"stage\": \"remove\"}");
+      *removed = true;
+      if (!LSMessageRespond(message, run_command_buffer, &lserror)) goto error;
+      useOpkg = false;
+    }
+    else if (result == APPINSTALLER_FAILED) {
+      strcat(run_command_buffer, "]");
+      *removed = false;
+      snprintf(command, MAXLINLEN, "appinstalld remove %s", package);
+      if (!report_command_failure(message, command, run_command_buffer+11, "\"stage\": \"failed\"")) goto end;
+      return true;
+    }
   }
-  else {
+
+  if (useOpkg) {
     snprintf(command, MAXLINLEN,
 	     "/usr/bin/opkg -o /media/cryptofs/apps remove %s 2>&1", package);
-  }
 
-
-  strcpy(run_command_buffer, "{\"stdOut\": [");
-  if (run_command(command, message, appinstaller)) {
-    strcat(run_command_buffer, "], \"returnValue\": true, \"stage\": \"remove\"}");
-    *removed = true;
-    if (!LSMessageRespond(message, run_command_buffer, &lserror)) goto error;
-  }
-  else {
-    strcat(run_command_buffer, "]");
-    *removed = false;
-    if (!report_command_failure(message, command, run_command_buffer+11, "\"stage\": \"failed\"")) goto end;
-    // %%% Should check for whether the application directory has been removed, or run opkg list_installed %%%
-    // Assume that it hasn't been removed properly (don't change *removed)
-    return true;
+    strcpy(run_command_buffer, "{\"stdOut\": [");
+    if (run_command(command, message, appinstaller)) {
+      strcat(run_command_buffer, "], \"returnValue\": true, \"stage\": \"remove\"}");
+      *removed = true;
+      if (!LSMessageRespond(message, run_command_buffer, &lserror)) goto error;
+    }
+    else {
+      strcat(run_command_buffer, "]");
+      *removed = false;
+      if (!report_command_failure(message, command, run_command_buffer+11, "\"stage\": \"failed\"")) goto end;
+      // %%% Should check for whether the application directory has been removed, or run opkg list_installed %%%
+      // Assume that it hasn't been removed properly (don't change *removed)
+      return true;
+    }
   }
 
   snprintf(command, MAXLINLEN,
