@@ -4,6 +4,18 @@
 
 //to reload changes on device: luna-send -n 1 palm://com.palm.applicationManager/rescan {}
 
+//webos-lib's AppMenu sets its height for 30px items; the items are taller here
+//(App.css), so let it take the height of its items (up to maxHeight).
+enyo.kind({
+    name: "preware.AppMenu",
+    kind: "enyo.AppMenu",
+    show: function () {
+        this.inherited(arguments);
+        this.applyStyle("height", null);
+        this.applyStyle("max-height", this.maxHeight + "px");
+    }
+});
+
 enyo.kind({
     name: "App",
     kind: "FittableRows",
@@ -47,7 +59,7 @@ enyo.kind({
             body: $L("Check the feeds for new and updated packages now?"), onAction: "updateFeedsYes", onDismiss: "updateFeedsNo"},
                 {name: "ResourceHandlerDialog", kind: "Preware.ChoiceDialog", title: $L("FileType Association"), onAction: "resourceHandlerAccepted", onDismiss: "resourceHandlerDeclined"},
         {
-            kind: "AppMenu", //onSelect: "appMenuItemSelected",
+            kind: "preware.AppMenu", //onSelect: "appMenuItemSelected",
             style: "overflow: hidden;",
             components: [
                 { kind: "enyo.AppMenuItem", content: $L("Reload list"), ontap: "reloadPackageList"},

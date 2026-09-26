@@ -422,3 +422,29 @@
     -webkit-box-sizing: border-box;
     box-sizing: border-box;
 }
+
+/* App menu (swipe down / tap the app name): sized like the webOS 3 app menus
+   (18px text, about 50px per item, a divider between items), instead of
+   webos-lib's 5px padding. A fixed height with the text centred spaces all items
+   evenly. */
+.enyo-appmenu {
+    min-width: 240px;
+    padding: 0;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+.enyo-appmenu .enyo-item {
+    height: 52px;
+    line-height: 52px;
+    padding: 0 24px 0 16px;
+    font-size: 18px;
+    white-space: nowrap;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+}
+.enyo-appmenu .enyo-item:first-child {
+    border-top: none;
+}
+.enyo-appmenu .enyo-item:last-child {
+    border-bottom: none;
+}
