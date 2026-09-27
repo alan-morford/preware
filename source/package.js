@@ -15,6 +15,7 @@ enyo.depends(
     "ChoiceDialog.js",
     "InstallPackageDialog.js",
     "ListItem.js",
+    "LunaManagerDialog.js",
     "ManageFeedsDialog.js",
     "PackageDisplay.js",
     "PackagesMenu.js",

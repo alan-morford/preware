@@ -54,6 +54,7 @@ enyo.kind({
         {kind: "CoreNavi", fingerTracking: true},
         {name: "SettingsDialog", kind: "SettingsDialog"},
         {name: "ManageFeedsDialog", kind: "ManageFeedsDialog"},
+        {name: "LunaManagerDialog", kind: "LunaManagerDialog"},
         {name: "InstallPackageDialog", kind: "InstallPackageDialog", onHide: "installDialogHidden"},
         {name: "RestartDialog", kind: "Preware.ChoiceDialog", title: $L("Restart Required"), onAction: "restartAccepted", onDismiss: "restartDeclined"},
         {name: "UpdateFeedsDialog", kind: "Preware.ChoiceDialog", title: $L("Update Feeds"), okLabel: $L("Update"), cancelLabel: $L("Not Now"),
@@ -63,10 +64,13 @@ enyo.kind({
             kind: "preware.AppMenu", //onSelect: "appMenuItemSelected",
             style: "overflow: hidden;",
             components: [
-                { kind: "enyo.AppMenuItem", content: $L("Reload list"), ontap: "reloadPackageList"},
-                { kind: "enyo.AppMenuItem", content: $L("Install Package"), ontap: "showInstallPackageDialog"},
+                //matches the original Preware's swipe-down menu, minus Help.
                 { kind: "enyo.AppMenuItem", content: $L("Preferences"), ontap: "showSettingsDialog" },
-                { kind: "enyo.AppMenuItem", content: $L("Manage Feeds"), ontap: "showManageFeedsDialog" }
+                { kind: "enyo.AppMenuItem", content: $L("Update Feeds"), ontap: "reloadPackageList"},
+                { kind: "enyo.AppMenuItem", content: $L("Manage Feeds"), ontap: "showManageFeedsDialog" },
+                { kind: "enyo.AppMenuItem", content: $L("Install Package"), ontap: "showInstallPackageDialog"},
+                { kind: "enyo.AppMenuItem", content: $L("Saved Package List"), ontap: "showSavedPackageList"},
+                { kind: "enyo.AppMenuItem", content: $L("Luna Manager"), ontap: "showLunaManagerDialog"}
             ]
         }
     ],
@@ -85,6 +89,7 @@ enyo.kind({
         //hide possible open dialogs on back gesture?
         this.$.SettingsDialog.hide();
         this.$.ManageFeedsDialog.hide();
+        this.$.LunaManagerDialog.hide();
         inEvent.preventDefault();
     },
     handleCoreNaviDragStart: function (inSender, inEvent) {
@@ -140,7 +145,7 @@ enyo.kind({
         }
     },
     dialogShowing: function () {
-        var names = ["SettingsDialog", "ManageFeedsDialog", "InstallPackageDialog", "RestartDialog",
+        var names = ["SettingsDialog", "ManageFeedsDialog", "LunaManagerDialog", "InstallPackageDialog", "RestartDialog",
                      "ResourceHandlerDialog", "UpdateFeedsDialog", "appMenu"], i;
         for (i = 0; i < names.length; i += 1) {
             if (this.$[names[i]] && this.$[names[i]].showing) {
@@ -232,6 +237,12 @@ enyo.kind({
     },
     showManageFeedsDialog: function (inSender, inEvent) {
         this.$.ManageFeedsDialog.show();
+    },
+    showLunaManagerDialog: function (inSender, inEvent) {
+        this.$.LunaManagerDialog.show();
+    },
+    showSavedPackageList: function (inSender, inEvent) {
+        this.$.AppPanels.$.packagesMenu.showSavedPackages();
     },
     showInstallPackageDialog: function (inSender, inEvent) {
         this.$.InstallPackageDialog.show();

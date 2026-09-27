@@ -158,6 +158,27 @@
 }
 /* End Groupboxes */
 
+/* Luna Manager: a button on the left, its description on the right */
+.luna-manager-row {
+	display: table;
+	width: 100%;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+}
+.luna-manager-button-cell, .luna-manager-text {
+	display: table-cell;
+	vertical-align: middle;
+}
+.luna-manager-button-cell {
+	width: 1px; /* as narrow as its button */
+	white-space: nowrap;
+}
+.luna-manager-text {
+	padding-left: 12px;
+	color: white;
+	font-size: 14px;
+}
+
 /* Style a list like a groupbox. Needs to be done with an aroundlist */
 .webosstyle-list-groupbox-top {
 	padding: 5px; 

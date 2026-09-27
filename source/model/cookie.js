@@ -52,6 +52,11 @@ enyo.singleton({
                     // LuneOS: the default feeds have been added (preware.LuneOSFeeds)
                     luneosFeedsSetUp: false,
 
+                    // Saved Package List: a one-time snapshot of what was installed the
+                    // first time Preware 2 loaded packages, for restoring after a reflash.
+                    savedPackages: [],
+                    savedPackagesTaken: false,
+
                     // Hidden Advanced Group
                     rodMode:        false, // haha
                     browseFromRoot:    false

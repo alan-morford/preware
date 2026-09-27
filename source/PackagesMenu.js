@@ -17,11 +17,12 @@ enyo.kind({
         onSelected: ""
     },
 
-    packageFilters: {//filter for all = 0, available (i.e. not installed) = 1, only installed = 2, only updatable = 3
+    packageFilters: {//filter for all = 0, available (i.e. not installed) = 1, only installed = 2, only updatable = 3, saved list = 4
         all: 0,
         available: 1,
         installed: 2,
-        updatable: 3
+        updatable: 3,
+        saved: 4
     },
     currentPackageFilter: -1,
     //set only while showing the type+category filtered list under "Available Packages".
@@ -133,6 +134,15 @@ enyo.kind({
 
         this.doSelected({name: "all", packagesLength: this.availablePackages.length});
     },
+    //opened from the swipe-down menu, not from a ListItem here: see App.js/AppPanels.js.
+    showSavedPackages: function () {
+        this.currentPackageFilter = this.packageFilters.saved;
+        this.currentFilterType = null;
+        this.currentFilterCategory = null;
+        this.recomputePackageList();
+
+        this.doSelected({name: "saved", packagesLength: this.availablePackages.length});
+    },
 
 
     //public function:
@@ -175,6 +185,9 @@ enyo.kind({
         }
         if (this.currentPackageFilter === this.packageFilters.installed) {
             return pkg.isInstalled;
+        }
+        if (this.currentPackageFilter === this.packageFilters.saved) {
+            return pkg.isInSavedList;
         }
 
         if (this.currentPackageFilter === this.packageFilters.available) {

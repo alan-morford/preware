@@ -176,7 +176,8 @@ enyo.kind({
                 {name: "InstallButton", kind: "onyx.Button", showing: false, content: "Install", ontap: "installTapped"},
                 {name: "UpdateButton", kind: "onyx.Button", showing: false, content: "Update", ontap: "updateTapped"},
                 {name: "RemoveButton", kind: "onyx.Button", showing: false, content: "Remove", ontap: "removeTapped"},
-                {name: "LaunchButton", kind: "onyx.Button", showing: false, content: "Launch", ontap: "launchTapped"}
+                {name: "LaunchButton", kind: "onyx.Button", showing: false, content: "Launch", ontap: "launchTapped"},
+                {name: "UnsaveButton", kind: "onyx.Button", showing: false, content: $L("Remove from Saved"), ontap: "unsaveTapped"}
             ]
         }
     ],
@@ -198,6 +199,9 @@ enyo.kind({
     },
     removeTapped: function () {
         this.currentPackage.doRemove();
+    },
+    unsaveTapped: function () {
+        this.currentPackage.unsave();
     },
     
     /** Opens every maintainer URL found. Realistically, will there ever be more than one? */
@@ -377,6 +381,8 @@ enyo.kind({
     	if(this.currentPackage.hasUpdate){
     		this.$.UpdateButton.show();
     	}
+
+    	this.$.UnsaveButton.setShowing(!!this.currentPackage.isInSavedList);
     },
     
     humanFileSize: function(bytes, si) {

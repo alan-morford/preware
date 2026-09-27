@@ -563,8 +563,34 @@ enyo.singleton({
             }
         }
 
+        this.syncSavedPackages();
+
         // tell the main scene we're done updating
         this.doneUpdating();
+    },
+
+    //Saved Package List: the first time packages are ever loaded, snapshot what's
+    //currently installed (like the original Preware's device-reflash backup). After
+    //that the saved list only changes when the user removes something from it
+    //(PackageModel#unsave) - it stays a fixed record of "what I had installed",
+    //not a live mirror of the installed set.
+    syncSavedPackages: function () {
+        var p, pkg, savedIds;
+        if (!preware.PrefCookie.get().savedPackagesTaken) {
+            savedIds = [];
+            for (p = 0; p < this.packages.length; p += 1) {
+                pkg = this.packages[p];
+                if (pkg.isInstalled && (!pkg.appCatalog || preware.PrefCookie.get().useTuckerbox)) {
+                    savedIds.push(pkg.pkg);
+                }
+            }
+            preware.PrefCookie.put("savedPackages", savedIds);
+            preware.PrefCookie.put("savedPackagesTaken", true);
+        }
+        savedIds = preware.PrefCookie.get().savedPackages;
+        for (p = 0; p < this.packages.length; p += 1) {
+            this.packages[p].isInSavedList = savedIds.indexOf(this.packages[p].pkg) !== -1;
+        }
     },
 
     //============================= multi package operations

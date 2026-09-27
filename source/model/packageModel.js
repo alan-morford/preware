@@ -974,6 +974,19 @@ enyo.kind({
         }
     },
 
+    //removes this package from the Saved Package List (the snapshot taken the
+    //first time packages loaded). There is no way to add to it afterwards, to
+    //match the original Preware.
+    unsave: function () {
+        var saved = preware.PrefCookie.get().savedPackages.slice(), index = saved.indexOf(this.pkg);
+        if (index !== -1) {
+            saved.splice(index, 1);
+            preware.PrefCookie.put("savedPackages", saved);
+        }
+        this.isInSavedList = false;
+        enyo.Signals.send("onPackageRefresh");
+    },
+
     onInstall: function (multi, payload) {
         var msg, msgError;
 
