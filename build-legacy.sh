@@ -23,7 +23,10 @@ if [ "$1" = "--debug" ]; then
 fi
 cp -r legacy/bin legacy/dbus legacy/upstart "$OUT/"
 chmod 755 "$OUT/bin/"*
-sed -i -e "s/@APPID@/$APPID/g" "$OUT/upstart/preware2-service-check"
+# not sed -i: BSD sed (macOS) takes "-e" there as a backup suffix and leaves
+# preware2-service-check-e, the unsubstituted template, in the package
+sed -e "s/@APPID@/$APPID/g" "$OUT/upstart/preware2-service-check" > "$OUT/upstart/preware2-service-check.tmp"
+mv "$OUT/upstart/preware2-service-check.tmp" "$OUT/upstart/preware2-service-check"
 
 mkdir -p bin
 IPK=bin/${APPID}_${VERSION}_all.ipk
