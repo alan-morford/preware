@@ -24,6 +24,9 @@ enyo.kind({
         updatable: 3
     },
     currentPackageFilter: -1,
+    //set only while showing the type+category filtered list under "Available Packages".
+    currentFilterType: null,
+    currentFilterCategory: null,
 
     //public components
     published: {
@@ -83,24 +86,17 @@ enyo.kind({
         this.setSelectedItem(null);
     },
     showUpdatablePackages: function () {
-        var i, pkg;
         this.currentPackageFilter = this.packageFilters.updatable;
-        this.availablePackages = [];
-
-        for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
-            pkg = preware.PackagesModel.packages[i];
-            if (this.checkPackageStatus(pkg)) {
-                if (this.availablePackages.indexOf(pkg) === -1) {
-                    this.availablePackages.push(pkg);
-                }
-            }
-        }
-        this.sortPackageList();
+        this.currentFilterType = null;
+        this.currentFilterCategory = null;
+        this.recomputePackageList();
 
         this.doSelected({name: "updatable", packagesLength: this.availablePackages.length});
     },
     showAvailableTypeList: function () {
         this.currentPackageFilter = this.packageFilters.available;
+        this.currentFilterType = null;
+        this.currentFilterCategory = null;
         this.availableTypes = [];
 
         var i, pkg, availableTypesHash = {}, type;
@@ -122,34 +118,18 @@ enyo.kind({
         this.doSelected({name: "available", showTypeAndCategoriesPanels: true, typesLength: this.availableTypes.length});
     },
     showInstalledPackages: function () {
-        var i, pkg;
         this.currentPackageFilter = this.packageFilters.installed;
-        this.availablePackages = [];
-
-        for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
-            pkg = preware.PackagesModel.packages[i];
-            if (this.checkPackageStatus(pkg)) {
-                if (this.availablePackages.indexOf(pkg) === -1) {
-                    this.availablePackages.push(pkg);
-                }
-            }
-        }
-        this.sortPackageList();
+        this.currentFilterType = null;
+        this.currentFilterCategory = null;
+        this.recomputePackageList();
 
         this.doSelected({name: "installed", packagesLength: this.availablePackages.length});
     },
     showListOfEverything: function () {
-        var i, pkg;
         this.currentPackageFilter = this.packageFilters.all;
-        this.availablePackages = [];
-
-        for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
-            pkg = preware.PackagesModel.packages[i];
-            if (this.availablePackages.indexOf(pkg) === -1) {
-                this.availablePackages.push(pkg);
-            }
-        }
-        this.sortPackageList();
+        this.currentFilterType = null;
+        this.currentFilterCategory = null;
+        this.recomputePackageList();
 
         this.doSelected({name: "all", packagesLength: this.availablePackages.length});
     },
@@ -157,27 +137,15 @@ enyo.kind({
 
     //public function:
     filterByCategoryAndType: function (category, type) {
-        var i, pkg;
-        this.availablePackages = [];
-
-        for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
-            pkg = preware.PackagesModel.packages[i];
-
-            //first apply package filter:
-            if (this.checkPackageStatus(pkg)) {
-                //then apply category & type filter
-                if (pkg.type === type && pkg.category === category) {
-                    if (this.availablePackages.indexOf(pkg) === -1) {
-                        this.availablePackages.push(pkg);
-                    }
-                }
-            }
-        }
-        this.sortPackageList();
+        this.currentFilterType = type;
+        this.currentFilterCategory = category;
+        this.recomputePackageList();
 
         this.doSelected({name: "filtered", showTypeAndCategoriesPanels: true, packagesLength: this.availablePackages.length});
     },
     filterCategories: function (type) {
+        this.currentFilterType = type;
+        this.currentFilterCategory = null;
         this.availableCategories = [];
 
         var i, pkg, availableCategoriesHash = {}, category;
@@ -218,6 +186,49 @@ enyo.kind({
         }
 
         return true; //everything is fine.
+    },
+    //rebuilds availablePackages from the current filter (and, under "Available
+    //Packages", the drilled-down type/category) without navigating anywhere.
+    //Shared by the show*/filter* methods above and by refreshLists below, so a
+    //package install/remove can bring an already-open list back in sync.
+    recomputePackageList: function () {
+        var i, pkg;
+        this.availablePackages = [];
+        for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
+            pkg = preware.PackagesModel.packages[i];
+            if (!this.checkPackageStatus(pkg)) {
+                continue;
+            }
+            if (this.currentFilterType !== null && pkg.type !== this.currentFilterType) {
+                continue;
+            }
+            if (this.currentFilterCategory !== null && pkg.category !== this.currentFilterCategory) {
+                continue;
+            }
+            if (this.availablePackages.indexOf(pkg) === -1) {
+                this.availablePackages.push(pkg);
+            }
+        }
+        this.sortPackageList();
+        return this.availablePackages.length;
+    },
+    //true while availablePackages holds a package list (rather than the Types or
+    //Categories drill-down, which don't show packages directly).
+    isShowingPackageList: function () {
+        return this.currentPackageFilter !== this.packageFilters.available ||
+            (this.currentFilterType !== null && this.currentFilterCategory !== null);
+    },
+    //called after a package install/update/remove completes: the menu item counts
+    //are always stale (they're only set from a full listOfEverything reload), and
+    //the currently open package list, if any, was filtered at the time it opened.
+    //Returns the refreshed length of the currently shown package list, or -1 if
+    //none is currently shown.
+    refreshLists: function () {
+        this.listOfEverythingChanged(null, preware.PackagesModel.packages);
+        if (this.currentPackageFilter === -1 || !this.isShowingPackageList()) {
+            return -1;
+        }
+        return this.recomputePackageList();
     },
     getPackage: function (index) {
         if (index >= 0) {

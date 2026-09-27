@@ -29,6 +29,7 @@ enyo.kind({
             onListSortChanged: "listSortChanged",
             onReloadPackages: "reloadPackages",
             onListInstalledChanged: "listInstalledChanged",
+            onPackageRefresh: "handlePackageRefresh",
             ondeviceready: "handleDeviceReady"
         },
 
@@ -301,6 +302,17 @@ enyo.kind({
     //"Installed is available" changed: the counts in the menu change with it.
     listInstalledChanged: function () {
         this.$.packagesMenu.listOfEverythingChanged(null, preware.PackagesModel.packages);
+    },
+    //an install/update/remove completed: the menu counts are stale, and so is any
+    //package list already open (it was filtered when the user opened it). Bring
+    //both back in sync without changing what panel is showing.
+    handlePackageRefresh: function () {
+        var count = this.$.packagesMenu.refreshLists();
+        if (count >= 0) {
+            this.$.PackageRepeater.setCount(0);
+            this.$.PackageRepeater.setCount(count);
+            this.$.NoPackages.setShowing(count === 0);
+        }
     },
     //the sort order preference changed: sort the list shown again.
     listSortChanged: function (inSender, inEvent) {
