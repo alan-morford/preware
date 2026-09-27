@@ -1,11 +1,14 @@
 enyo.depends(
+    "platform.js",
     "cookie.js",
     "deviceProfile.js",
     "feeds.js",
     "filePicker.js",
     "IPKGService.js",
+    "luneosFeeds.js",
     "packageModel.js",
     "packagesModel.js",
     "palmProfile.js",
+    "resourceHandler.js",
     "typeConditions.js"
 );

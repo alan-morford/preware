@@ -31,6 +31,10 @@ enyo.kind({
     // onBackendSimpleMessage: { msg: text message } //emitted at the end of operations.
     // onPackageRefresh: {} // emitted at operations that require UI to reload package information.
 
+    //a feed value that should be a list, but may be a single value.
+    asList: function (value) {
+        return enyo.isArray(value) ? value : [value];
+    },
     doSimpleMessage: function (msg) {
         enyo.Signals.send("onBackendSimpleMessage", {message: msg});
     },
@@ -168,7 +172,7 @@ enyo.kind({
     },
 
     infoLoad: function (info) {
-        var splitRes, i, r, match, tmp, sourceJson = {}, blacklist, b, m;
+        var splitRes, i, r, match, tmp, sourceJson = {}, blacklist, b, m, lastUpdated;
         try {
             // load data
             this.pkg =      this.pkg      || info.Package;
@@ -243,7 +247,9 @@ enyo.kind({
                 this.preInstallMessage =    this.preInstallMessage   || sourceJson.PreInstallMessage;
                 this.preUpdateMessage =     this.preUpdateMessage    || sourceJson.PreUpdateMessage;
                 this.preRemoveMessage =     this.preRemoveMessage    || sourceJson.PreRemoveMessage;
-                this.date =                 this.date                || isNumeric(sourceJson.LastUpdate) ? sourceJson.LastUpdate : undefined;
+                // the feeds call it LastUpdated (and so does infoSave below)
+                lastUpdated = sourceJson.LastUpdated !== undefined ? sourceJson.LastUpdated : sourceJson.LastUpdate;
+                this.date =                 this.date                || (isNumeric(lastUpdated) ? lastUpdated : undefined);
                 if ((!this.screenshots || this.screenshots.length === 0) && sourceJson.Screenshots) {
                     this.screenshots = sourceJson.Screenshots;
                 }
@@ -260,9 +266,10 @@ enyo.kind({
                     this.maxWebOSVersion = sourceJson.MaxWebOSVersion;
                 }
 
+                // some feeds (the App Museum) give a single value instead of a list
                 if (sourceJson.DeviceCompatibility) {
-                    this.devices = sourceJson.DeviceCompatibility;
-                    this.deviceString = sourceJson.DeviceCompatibility.join(", ");
+                    this.devices = this.asList(sourceJson.DeviceCompatibility);
+                    this.deviceString = this.devices.join(", ");
                 }
 
                 if (sourceJson.Feed) {
@@ -271,13 +278,13 @@ enyo.kind({
                 }
 
                 if (sourceJson.Countries) {
-                    this.countries = sourceJson.Countries;
-                    this.countryString = sourceJson.Countries.join(", ");
+                    this.countries = this.asList(sourceJson.Countries);
+                    this.countryString = this.countries.join(", ");
                 }
 
                 if (sourceJson.Languages) {
-                    this.languages = sourceJson.Languages;
-                    this.languageString = sourceJson.Languages.join(", ");
+                    this.languages = this.asList(sourceJson.Languages);
+                    this.languageString = this.languages.join(", ");
                 }
 
                 if (sourceJson.PostInstallFlags) {
@@ -384,12 +391,15 @@ enyo.kind({
             if (this.category === 'Unsorted') {
                 this.category =    pkg.category;
             }
-            if (!this.maintainer || this.maintainer.length === 0 ||
-                (this.maintainer.length === 1 && this.maintainer[0].name === 'N/A')) {
+            // only take the other one's maintainers if it has any (a feed entry
+            // may have none: false)
+            if ((!this.maintainer || this.maintainer.length === 0 ||
+                    (this.maintainer.length === 1 && this.maintainer[0].name === 'N/A')) &&
+                    enyo.isArray(pkg.maintainer) && pkg.maintainer.length > 0) {
                 this.maintainer = pkg.maintainer;
             }
-            this.date = this.date || isNumeric(pkg.date) ? pkg.date : undefined;
-            this.dateInstalled = this.dateInstalled || isNumeric(pkg.dateInstalled) ? pkg.dateInstalled : undefined;
+            this.date = this.date || (isNumeric(pkg.date) ? pkg.date : undefined);
+            this.dateInstalled = this.dateInstalled || (isNumeric(pkg.dateInstalled) ? pkg.dateInstalled : undefined);
 
             this.maintUrl             =     this.maintUrl             || pkg.maintUrl;
             this.size                 =     this.size                 || pkg.size;
@@ -964,6 +974,19 @@ enyo.kind({
         }
     },
 
+    //removes this package from the Saved Package List (the snapshot taken the
+    //first time packages loaded). There is no way to add to it afterwards, to
+    //match the original Preware.
+    unsave: function () {
+        var saved = preware.PrefCookie.get().savedPackages.slice(), index = saved.indexOf(this.pkg);
+        if (index !== -1) {
+            saved.splice(index, 1);
+            preware.PrefCookie.put("savedPackages", saved);
+        }
+        this.isInSavedList = false;
+        enyo.Signals.send("onPackageRefresh");
+    },
+
     onInstall: function (multi, payload) {
         var msg, msgError;
 
@@ -998,20 +1021,15 @@ enyo.kind({
                         preware.PackagesModel.doMultiInstall(multi + 1);
                         return;
                     } else {
-                        if (this.hasFlags('install')) { //TODO!
-                            console.error("assistant.actionMessage not yet replaced, logging instead");
-                            enyo.log(
-                                msg + ':<br /><br />' + this.actionMessage('install')
-                                //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                                //this.actionFunction.bind(this, 'install')
-                            );
+                        if (this.hasFlags('install')) {
+                            this.requestAction(msg, 'install');
                             return;
                         } else {
                             // we run this anyways to get the rescan
                             this.runFlags('install');
                         }
                     }
-                } else if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                } else if (preware.IPKGService.isNotRunning(payload)) {
                     // we keep this around for services without flags that have a javarestart in their scripts
                     // of course, it might get here on accident, but thats a risk we'll have to take for now [2]
 
@@ -1080,19 +1098,14 @@ enyo.kind({
                         return;
                     } else {
                         if (this.hasFlags('update')) {
-                            console.error("assistant.actionMessage not yet replaced, logging instead");
-                            enyo.log(
-                                msg + ':<br /><br />' + this.actionMessage('update')
-                                //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                                //this.actionFunction.bind(this, 'update')
-                            );
+                            this.requestAction(msg, 'update');
                             return;
                         } else {
                             // we run this anyways to get the rescan
                             this.runFlags('update');
                         }
                     }
-                } else if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                } else if (preware.IPKGService.isNotRunning(payload)) {
                     // we keep this around for services without flags that have a javarestart in their scripts
                     // of course, it might get here on accident, but thats a risk we'll have to take for now
 
@@ -1161,19 +1174,13 @@ enyo.kind({
 
                     // do finishing stuff
                     if (this.hasFlags('remove')) {
-                        //TODO: Hook into UI
-                        console.error("assistant.actionMessage not yet replaced, logging instead");
-                        enyo.log(
-                            msg + ':<br /><br />' + this.actionMessage('remove')
-                            //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                            //this.actionFunction.bind(this, 'remove')
-                        );
+                        this.requestAction(msg, 'remove');
                         return;
                     } else {
                         // we run this anyways to get the rescan
                         this.runFlags('remove');
                     }
-                } else if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                } else if (preware.IPKGService.isNotRunning(payload)) {
                     // we keep this around for services without flags that have a javarestart in their scripts
                     // of course, it might get here on accident, but thats a risk we'll have to take for now
 
@@ -1197,9 +1204,8 @@ enyo.kind({
                     //[{label:$L("Ok"), value:'ok'}, {label:$L("IPKG Log"), value:'view-log'}],
                     //this.actionFunction.bind(this, 'remove')
                 );
-            } else {
-                this.doSimpleMessage(msg);
             }
+            this.doSimpleMessage(msg);
         } catch (e) {
             console.error(e, 'packageModel#onRemove');
         }
@@ -1211,20 +1217,28 @@ enyo.kind({
         }
         return false;
     },
+    //tell the user a restart is needed and let them decide when to do it.
+    requestAction: function (msg, type) {
+        this.doSimpleMessage(msg);
+        enyo.Signals.send("onPackageActionRequired", {
+            message: msg + ':<br /><br />' + this.actionMessage(type),
+            callback: this.actionFunction.bind(this, type)
+        });
+    },
     runFlags: function (type) {
         try {
             if ((this.flags[type].RestartJava && this.flags[type].RestartLuna) || this.flags[type].RestartDevice) {
-                IPKGService.restartdevice(function () {});
+                preware.IPKGService.restartDevice(function () {});
             }
             if (this.flags[type].RestartJava) {
-                IPKGService.restartjava(function () {});
+                preware.IPKGService.restartJava(function () {});
             }
             if (this.flags[type].RestartLuna) {
-                IPKGService.restartluna(function () {});
+                preware.IPKGService.restartLuna(function () {});
             }
             // this is always ran...
             if (!preware.PrefCookie.get().avoidBugs && type !== 'remove') {
-                IPKGService.rescan(function () {});
+                preware.IPKGService.rescan(function () {});
             }
         } catch (e) {
             console.error(e, 'packageModel#runFlags');
@@ -1243,7 +1257,7 @@ enyo.kind({
         } else {
             // we should still rescan...
             if (!preware.PrefCookie.get().avoidBugs && type !== 'remove') {
-                IPKGService.rescan(function () {});
+                preware.IPKGService.rescan(function () {});
             }
         }
         return;

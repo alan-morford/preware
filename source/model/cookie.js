@@ -1,5 +1,5 @@
 /*jslint sloppy: true */
-/*global enyo, preware, console */
+/*global enyo, preware, console, window */
 
 enyo.singleton({
     name: "preware.PrefCookie",
@@ -49,6 +49,14 @@ enyo.singleton({
                     // For Resource Handler Object
                     resourceHandlerCheck: true,
 
+                    // LuneOS: the default feeds have been added (preware.LuneOSFeeds)
+                    luneosFeedsSetUp: false,
+
+                    // Saved Package List: a one-time snapshot of what was installed the
+                    // first time Preware 2 loaded packages, for restoring after a reflash.
+                    savedPackages: [],
+                    savedPackagesTaken: false,
+
                     // Hidden Advanced Group
                     rodMode:        false, // haha
                     browseFromRoot:    false
@@ -66,13 +74,13 @@ enyo.singleton({
     },
     getAllValues: function () {
         var field, value;
-        if (enyo.getCookie("preware-cookie-set")) {
+        if (this.readValue("preware-cookie-set")) {
             for (field in this.prefs) {
                 if (this.prefs.hasOwnProperty(field)) {
-                    value = enyo.getCookie(field);
+                    value = this.readValue(field);
                     console.log("COOKIE, READ: " + field + " = " + value);
                     if (value !== undefined) {
-                        this.prefs[field] = value;
+                        this.prefs[field] = this.coerce(this.prefs[field], value);
                     }
                 }
             }
@@ -80,6 +88,23 @@ enyo.singleton({
             this.warn("COULD NOT GET COOKIE!!!");
             this.setAllValues();
         }
+    },
+    //cookies only store strings, convert back to the type of the default value.
+    //otherwise "false" would be truthy.
+    coerce: function (defaultValue, value) {
+        if (typeof value !== "string") {
+            return value;
+        }
+        if (typeof defaultValue === "boolean") {
+            return value === "true";
+        }
+        if (typeof defaultValue === "number") {
+            return isNaN(Number(value)) ? defaultValue : Number(value);
+        }
+        if (enyo.isArray(defaultValue)) {
+            return value ? value.split(",") : [];
+        }
+        return value;
     },
     put: function (obj, value) {
         try {
@@ -89,8 +114,8 @@ enyo.singleton({
 
             if (value !== undefined) {
                 this.prefs[obj] = value;
-                enyo.setCookie(obj, value); //take a shortcut here.
-                enyo.setCookie("preware-cookie-set", true);
+                this.writeValue(obj, value); //take a shortcut here.
+                this.writeValue("preware-cookie-set", true);
             } else {
                 this.prefs = obj;
                 this.setAllValues();
@@ -103,10 +128,31 @@ enyo.singleton({
         var field;
         for (field in this.prefs) {
             if (this.prefs.hasOwnProperty(field)) {
-                enyo.setCookie(field, this.prefs[field]);
+                this.writeValue(field, this.prefs[field]);
             }
         }
-        enyo.setCookie("preware-cookie-set", true);
+        this.writeValue("preware-cookie-set", true);
+    },
+    //LuneOS runs the app from file://, where the web runtime keeps no cookies,
+    //so the preferences are kept in localStorage. They are still written to the
+    //cookies too, and read from there when localStorage does not have them yet
+    //(the preferences of earlier versions on legacy webOS).
+    readValue: function (name) {
+        var value = null;
+        try {
+            value = window.localStorage.getItem("preware2." + name);
+        } catch (e) {
+            console.log("preferenceCookie#readValue: " + e);
+        }
+        return value !== null ? value : enyo.getCookie(name);
+    },
+    writeValue: function (name, value) {
+        try {
+            window.localStorage.setItem("preware2." + name, value);
+        } catch (e) {
+            console.log("preferenceCookie#writeValue: " + e);
+        }
+        enyo.setCookie(name, value);
     }
 });
 

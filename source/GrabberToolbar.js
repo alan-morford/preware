@@ -1,11 +1,16 @@
-
 enyo.kind({
     name: "GrabberToolbar",
     kind: "onyx.Toolbar",
+    classes: "preware-grabber-toolbar",
     components:[
-        {kind: "onyx.Grabber"}
+        //shown on every device: on the TouchPad (no gesture area) it is the way back
+        {name: "grabberArea", classes: "preware-grabber-area", ontap: "grabberTapped", components: [
+            {kind: "onyx.Grabber"}
+        ]}
     ],
-    reflow: function() {
-        this.children[0].applyStyle('visibility', enyo.Panels.isScreenNarrow() ? 'hidden' : 'visible');
+    //tapping the grabber goes back to the previous panel, like the back gesture.
+    grabberTapped: function() {
+        enyo.Signals.send("onbackbutton", {preventDefault: function () {}, stopPropagation: function () {}});
+        return true;
     }
 });

@@ -11,11 +11,15 @@ enyo.kind({
 	
 	published: {
 		title: "",
-		body: ""
+		body: "",
+		okLabel: $L("Ok"),
+		cancelLabel: $L("Cancel")
 	},
 	bindings: [
 	    { from: ".title", to: ".$.dialogTitle.content" },
-	    { from: ".body", to: ".$.dialogBody.content" }
+	    { from: ".body", to: ".$.dialogBody.content" },
+	    { from: ".okLabel", to: ".$.okButton.content" },
+	    { from: ".cancelLabel", to: ".$.cancelButton.content" }
 	],
 	
 	events: {
@@ -28,8 +32,8 @@ enyo.kind({
 		{tag: "hr"},
 		{name: "dialogBody", allowHtml: true},
 		{components: [
-			{kind: "onyx.Button", style: "margin-top: 10px; margin-right: 5%; width: 45%", classes: "onyx-blue", content: $L("Ok"), ontap: "chooseYes"},
-			{kind: "onyx.Button", style: "margin-top: 10px; margin-left: 5%; width: 45%", content: $L("Cancel"), ontap: "chooseNo"}
+			{name: "okButton", kind: "onyx.Button", style: "margin-top: 10px; margin-right: 5%; width: 45%", classes: "onyx-blue", ontap: "chooseYes"},
+			{name: "cancelButton", kind: "onyx.Button", style: "margin-top: 10px; margin-left: 5%; width: 45%", ontap: "chooseNo"}
 		]}
 	],
 	

@@ -60,8 +60,8 @@ enyo.kind({
         	{kind: "onyx.Button", classes: "onyx-affirmative", style: "margin:5px; width: 18%; min-width: 100px; font-size: 18px;", content: $L("Close"), ontap: "closePopup"}
         ]},
         {name: "alertDialog", kind: Preware.AlertDialog, onDismiss: "closeDialog"},
-        {name: "warningDialog", kind: Preware.ChoiceDialog, title: $L("Non-webos-ports Feed"),
-        	body: $L("<p>By adding a non-webos-ports feed, you're trusting both the package developers and feed maintainer, and that their sites haven't been hacked.</p><p>You take full responsibility for any and all potential outcomes that may occur as a result of doing so, including (but not limited to): loss of warranty, loss of all data, loss of all privacy, security vulnerabilities and device damage.</p>"),
+        {name: "warningDialog", kind: Preware.ChoiceDialog, title: $L("Third-party Feed"),
+        	body: $L("<p>By adding a third-party feed, you're trusting both the package developers and feed maintainer, and that their sites haven't been hacked.</p><p>You take full responsibility for any and all potential outcomes that may occur as a result of doing so, including (but not limited to): loss of warranty, loss of all data, loss of all privacy, security vulnerabilities and device damage.</p>"),
         	onDismiss: "closeDialog"},
     ],
 
@@ -138,7 +138,7 @@ enyo.kind({
 			{
 				// we probably dont need to check this stuff here,
 				// it would have already been checked and errored out of this process
-				if (payload.errorText == "org.webosports.service.ipkg is not running.")
+				if (preware.IPKGService.isNotRunning(payload))
 				{
 					this.$.alertDialog.show('Preware', $L("The service is not running. First try restarting Preware, or reboot your device and try again."));
 					this.doneLoading();
@@ -256,12 +256,17 @@ enyo.kind({
 		}
 
 		var i = inEvent.index;
-		if (this.feeds[i].enabled || this.warningOkd || /^https?:\/\/feeds.webos-ports.org(:|\/)/.test(this.feeds[i].url)) {
+		if (this.feeds[i].enabled || this.warningOkd || this.isTrustedFeed(this.feeds[i].url)) {
 			this.toggleFeed(i);
 		} else {   // enabling feed or warning not previously accepted
 			this.$.warningDialog.set("onAction", "okFeedToggle");
 			this.$.warningDialog.show(i);
 		}
+	},
+	//feeds that are set up by default don't need a warning
+	//(the same ones on LuneOS, see preware.LuneOSFeeds).
+	isTrustedFeed: function (url) {
+		return /^https?:\/\/([a-z0-9\-]+\.)*(preware\.net|webosarchive\.org|weboslives\.eu|pivotce\.com)(:|\/)/.test(url);
 	},
 	okFeedToggle: function (inSender, inEvent) {
     	this.$.warningDialog.hide();
@@ -404,12 +409,16 @@ enyo.kind({
 		onToggle: ""
 	},
 	
+	//the toggle at the right, the name and URL in the width that is left
+	//(a long URL breaks there instead of pushing the toggle out of the row)
 	components: [
-		{kind: "enyo.FittableRows", fit: true, components: [
-		  {name: "feedName"},
-		  {name: "feedURL", style: "font-size: 10px; color: LightGray"},
-		]},
-		{name: "feedEnabledToggle", kind: "onyx.ToggleButton", classes: "managefeedslist-feed-item-enable-toggle", ontap: "toggleTap"}
+		{classes: "managefeedslist-feed-item-columns", components: [
+			{name: "feedEnabledToggle", kind: "onyx.ToggleButton", classes: "managefeedslist-feed-item-toggle", ontap: "toggleTap"},
+			{classes: "managefeedslist-feed-item-text", components: [
+				{name: "feedName"},
+				{name: "feedURL", classes: "managefeedslist-feed-item-url"}
+			]}
+		]}
 	],
 	
 	setFeed: function(inFeed) {

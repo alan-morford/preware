@@ -24,6 +24,27 @@
     font-size: 18px;
 }
 
+.list-item {
+    position: relative;
+}
+
+/* long package names stay on one line */
+.list-item-title {
+    left: 10px;
+    right: 60px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.list-item-has-icon .list-item-title {
+    left: 52px;
+}
+
+.list-item.list-item-active {
+    background-color: #1d3f63;
+}
+
 .list-item.onyx-selected {
     background-color: MidnightBlue;
 }
@@ -137,6 +158,27 @@
 }
 /* End Groupboxes */
 
+/* Luna Manager: a button on the left, its description on the right */
+.luna-manager-row {
+	display: table;
+	width: 100%;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+}
+.luna-manager-button-cell, .luna-manager-text {
+	display: table-cell;
+	vertical-align: middle;
+}
+.luna-manager-button-cell {
+	width: 1px; /* as narrow as its button */
+	white-space: nowrap;
+}
+.luna-manager-text {
+	padding-left: 12px;
+	color: white;
+	font-size: 14px;
+}
+
 /* Style a list like a groupbox. Needs to be done with an aroundlist */
 .webosstyle-list-groupbox-top {
 	padding: 5px; 
@@ -223,12 +265,23 @@
 /* End Settings Items */
 
 /* Style for Manage Feeds Dialog */
-.managefeedslist-feed-item > * {
-	display: inline-block;
-	vertical-align: middle;
+/* The toggle floats at the right, at its own width; the text next to it keeps
+   to the width that is left (overflow: hidden), and the row holds both. */
+.managefeedslist-feed-item-columns {
+	overflow: hidden;
 }
-.managefeedslist-feed-item-enable-toggle {
+.managefeedslist-feed-item-toggle {
 	float: right;
+	margin-left: 10px;
+}
+.managefeedslist-feed-item-text {
+	overflow: hidden;
+}
+.managefeedslist-feed-item-url {
+	font-size: 10px;
+	color: LightGray;
+	/* URLs have no spaces to wrap at */
+	word-break: break-all;
 }
 /* End Manage Feeds Dialog */
 
@@ -254,3 +307,165 @@
 	float: right;
 }
 /* End Install Package Dialog */
+/* header with a fixed-size search field (SearchHeader.js) */
+.preware-search-header {
+    position: relative;
+    overflow: hidden;
+}
+.preware-search-header-icon {
+    height: 100%;
+    margin: 0;
+}
+.preware-search-header-text {
+    position: absolute;
+    top: 4px;
+    left: 54px;
+    right: 408px;
+    margin: 0;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.preware-search-header-title {
+    font-size: 21px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.preware-search-header-tagline {
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+/* A fixed height, with the input filling it: the text is then centred vertically
+   whatever the font metrics of the device (it sat low on the Pre3). */
+.preware-search-box {
+    position: absolute !important;
+    top: 11px; /* (54px header - 32px) / 2 */
+    right: 8px;
+    width: 392px;
+    height: 32px;
+    margin: 0 !important;
+    padding: 0 4px 0 8px !important;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+.preware-search-box > input {
+    display: block;
+    width: 100%;
+    height: 30px; /* the box's 32px less its border */
+    line-height: normal;
+    padding-right: 30px;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+/* the search icon sits at the right end of the box */
+.preware-search-icon {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    width: 24px;
+    height: 24px;
+    margin-top: -12px;
+}
+.preware-search-box-disabled {
+    opacity: 0.4;
+}
+@media (max-width: 480px) {
+    .preware-search-header-text {
+        right: 156px;
+    }
+    .preware-search-box {
+        width: 140px;
+    }
+}
+
+/* ColumnPanels.js: menu on the left, panels open to its right */
+.preware-column-panels {
+    position: relative;
+    overflow: hidden;
+    background: #555 url('../assets/bg.png');
+}
+.preware-column {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+.preware-column-divider {
+    border-left: 1px solid #111;
+}
+
+/* tapping the grabber goes back one panel */
+/* The grabber sits at the left edge, out of the flow, so the buttons of a
+   toolbar are centred on the screen whether it is shown or not. */
+.preware-grabber-toolbar {
+    position: relative;
+    text-align: center;
+}
+.preware-grabber-area {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    margin-top: -19px; /* half its height: 27px grabber + 12px padding */
+    padding: 6px 14px;
+}
+
+.list-item-has-icon > img {
+    width: 32px;
+}
+
+/* loading / status box in the menu column: grows with its text */
+.onyx-toolbar.preware-status-box {
+    width: 90%;
+    height: auto;
+    min-height: 160px;
+    margin: 10% auto 2.5% auto;
+    padding: 16px 8px;
+    text-align: center;
+    border-radius: 16px;
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+.preware-status-text {
+    color: white;
+    white-space: normal;
+    word-wrap: break-word;
+    font-size: 16px;
+    line-height: 22px;
+}
+
+/* the other columns have a 54px title bar and 53px rows: line the menu rows up with theirs */
+.preware-menu-first {
+    margin-top: 1px;
+}
+
+.webosstyle-groupbox-body-single {
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+/* App menu (swipe down / tap the app name): sized like the webOS 3 app menus
+   (18px text, about 50px per item, a divider between items), instead of
+   webos-lib's 5px padding. A fixed height with the text centred spaces all items
+   evenly. */
+.enyo-appmenu {
+    min-width: 240px;
+    padding: 0;
+    border-radius: 0 0 8px 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+.enyo-appmenu .enyo-item {
+    height: 52px;
+    line-height: 52px;
+    padding: 0 24px 0 16px;
+    font-size: 18px;
+    white-space: nowrap;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.45);
+}
+.enyo-appmenu .enyo-item:first-child {
+    border-top: none;
+}
+.enyo-appmenu .enyo-item:last-child {
+    border-bottom: none;
+}

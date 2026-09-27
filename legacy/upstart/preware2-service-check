@@ -1,0 +1,8 @@
+description "Preware 2: reinstall the package manager service if it was removed"
+
+start on stopped finish
+
+script
+   S=/media/cryptofs/apps/usr/palm/applications/@APPID@/bin/install-service.sh
+   [ -f $S ] && sh $S
+end script

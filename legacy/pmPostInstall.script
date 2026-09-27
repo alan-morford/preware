@@ -1,0 +1,143 @@
+#!/bin/sh
+
+# Preware 2 on legacy webOS (Palm/HP webOS 2.x/3.x)
+#
+# Installs the package manager service (org.webosinternals.ipkgservice, the same
+# service the original Preware uses) and the default feeds of the original Preware.
+# Based on control/postinst of org.webosinternals.preware (webOSArchive/preware).
+
+PID="org.webosports.app.preware"
+SID="org.webosinternals.ipkgservice"
+
+# Handle execution as pmPostInstall.script
+if [ -z "$IPKG_OFFLINE_ROOT" ]; then
+  IPKG_OFFLINE_ROOT=/media/cryptofs/apps
+  mount -o remount,rw /
+fi
+
+APPS=/media/cryptofs/apps
+APPDIR=$APPS/usr/palm/applications/${PID}
+
+[ -d $APPS ] || { echo "Requires webOS 1.3.5 or later" ; exit 1 ; }
+
+# Extract the OS version for the version-specific patch and kernel feeds.
+# Take the last dotted-numeric token ("HP webOS 3.0.5", "webOS CE 3.1.0", "Palm Pre2 webOS 2.2.4").
+VERSION=`grep PRODUCT_VERSION_STRING /etc/palm-build-info 2>/dev/null | head -n 1 | sed -e 's/.*[^0-9.]\([0-9][0-9]*\.[0-9][0-9.]*\).*/\1/' -e 's/[^0-9.].*//' -e 's/\.*$//'`
+
+# Never let an unparsed string reach a feed URL (the feed config is whitespace-delimited).
+case "$VERSION" in
+  ''|*[!0-9.]*) VERSION=unknown ;;
+esac
+
+#
+# Package manager service (legacy/bin/install-service.sh, also run at boot by the
+# upstart job, in case removing the original Preware deleted the shared service)
+#
+sh $APPDIR/bin/install-service.sh
+
+# Check the service at every boot. Install the job atomically: upstart re-reads jobs in
+# /var/palm/event.d as soon as they change, so write it elsewhere and rename it.
+mkdir -p /var/palm/event.d
+cp $APPDIR/upstart/preware2-service-check /var/palm/.preware2-service-check.new
+mv /var/palm/.preware2-service-check.new /var/palm/event.d/preware2-service-check
+
+#
+# Feeds (same defaults as the original Preware)
+#
+
+# Create the ipkg config and database areas
+mkdir -p $APPS/etc/ipkg $APPS/usr/lib/ipkg/cache
+
+# Set up the architecture configuration file
+rm -f $APPS/etc/ipkg/arch.conf
+cp /etc/ipkg/arch.conf $APPS/etc/ipkg/arch.conf
+
+ARCH=`/bin/uname -m | sed -e 's|armv7l|armv7|' -e 's|armv6l|armv6|'`
+
+# Install optware feeds
+echo "src/gz optware http://ipkg.preware.net/feeds/optware/all" > $APPS/etc/ipkg/optware.conf
+echo "src/gz optware-${ARCH} http://ipkg.preware.net/feeds/optware/${ARCH}" >> $APPS/etc/ipkg/optware.conf
+
+# Remove dead webosnation feed
+rm -f $APPS/etc/ipkg/precentral.conf
+
+# Install backup webosnation feed
+echo "src/gz precentral http://weboslives.eu/feeds/precentral" > $APPS/etc/ipkg/precentral-weboslives.conf
+
+# Install App Museum feed. Its own feed name: under "precentral", like the feed
+# above, each would overwrite the other's package list.
+echo "src/gz appmuseum http://weboslives.eu/feeds/wosa" > $APPS/etc/ipkg/wosa-appmuseum.conf
+
+# Install PreCentral theme feed
+echo "src/gz precentral-themes http://ipkg.preware.net/feeds/precentral-themes" > $APPS/etc/ipkg/precentral-themes.conf
+
+# Install PivotCE feeds
+echo "src/gz pivotce http://feed.pivotce.com" > $APPS/etc/ipkg/pivotce.conf
+
+# Remove dead prethemer and clock-themes (Google Code) feeds
+rm -f $APPS/etc/ipkg/prethemer.conf $APPS/etc/ipkg/prethemer.conf.disabled $APPS/etc/ipkg/prethemer.conf.new
+rm -f $APPS/etc/ipkg/clock-themes.conf $APPS/etc/ipkg/clock-themes.conf.disabled $APPS/etc/ipkg/clock-themes.conf.new
+
+# Install webosinternals feeds
+echo "src/gz webosinternals http://ipkg.preware.net/feeds/webos-internals/all" > $APPS/etc/ipkg/webos-internals.conf
+echo "src/gz webosinternals-${ARCH} http://ipkg.preware.net/feeds/webos-internals/${ARCH}" >> $APPS/etc/ipkg/webos-internals.conf
+
+# The patch and kernel feeds are published per OS version, and nothing has been
+# published for 3.1 (webOS CE) or later.  Ship them disabled there, and when the
+# version could not be determined.
+VERSIONED_FEEDS_DISABLED=0
+if [ "$VERSION" = "unknown" ] ; then
+  VERSIONED_FEEDS_DISABLED=1
+else
+  V_MAJ=`echo "$VERSION" | cut -d. -f1`
+  V_MIN=`echo "$VERSION" | cut -d. -f2`
+  [ -z "$V_MAJ" ] && V_MAJ=0
+  [ -z "$V_MIN" ] && V_MIN=0
+  if [ "$V_MAJ" -gt 3 ] ; then
+    VERSIONED_FEEDS_DISABLED=1
+  elif [ "$V_MAJ" -eq 3 ] && [ "$V_MIN" -ge 1 ] ; then
+    VERSIONED_FEEDS_DISABLED=1
+  fi
+fi
+
+if [ "$VERSIONED_FEEDS_DISABLED" -eq 1 ] ; then
+  rm -f $APPS/etc/ipkg/webos-patches.conf
+  echo "src/gz webos-patches http://ipkg.preware.net/feeds/webos-patches/${VERSION}" > $APPS/etc/ipkg/webos-patches.conf.disabled
+  rm -f $APPS/etc/ipkg/webos-kernels.conf
+  echo "src/gz webos-kernels http://ipkg.preware.net/feeds/webos-kernels/${VERSION}" > $APPS/etc/ipkg/webos-kernels.conf.disabled
+else
+  echo "src/gz webos-patches http://ipkg.preware.net/feeds/webos-patches/${VERSION}" > $APPS/etc/ipkg/webos-patches.conf
+  echo "src/gz webos-kernels http://ipkg.preware.net/feeds/webos-kernels/${VERSION}" > $APPS/etc/ipkg/webos-kernels.conf
+fi
+
+# Install woce feed
+echo "src/gz woce http://ipkg.preware.net/feeds/woce" > $APPS/etc/ipkg/woce.conf
+
+# Install modernize feed (webOS Archive modernization stack: TLS 1.2/1.3, root certs, QupZilla, webOS CE)
+echo "src/gz modernize http://stacks.webosarchive.org/feeds/modernize/ipkgs" > $APPS/etc/ipkg/modernize.conf
+
+# Retain disabled status of existing feeds
+if [ "`ls $APPS/etc/ipkg/*.disabled 2>/dev/null`" ] ; then
+  for f in $APPS/etc/ipkg/*.disabled ; do
+    if [ -f $APPS/etc/ipkg/`basename $f .disabled` ] ; then
+      rm -f $f
+      mv $APPS/etc/ipkg/`basename $f .disabled` $f
+    fi
+  done
+fi
+
+# New feeds that are disabled by default: keep an existing enabled feed enabled,
+# otherwise install it disabled.
+if [ "`ls $APPS/etc/ipkg/*.new 2>/dev/null`" ] ; then
+  for f in $APPS/etc/ipkg/*.new ; do
+    if [ -f $APPS/etc/ipkg/`basename $f .new` ] ; then
+      rm -f $APPS/etc/ipkg/`basename $f .new`
+      mv $f $APPS/etc/ipkg/`basename $f .new`
+    else
+      rm -f $APPS/etc/ipkg/`basename $f .new`.disabled
+      mv $f $APPS/etc/ipkg/`basename $f .new`.disabled
+    fi
+  done
+fi
+
+exit 0

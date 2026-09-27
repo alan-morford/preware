@@ -21,20 +21,21 @@ enyo.kind({
         {
             kind: "onyx.Toolbar",
             components: [
-                {name: "PackageIcon", kind: "Image", style: "height: 100%; margin-right: 8px;"},
+                {name: "PackageIcon", kind: "Image", style: "height: 100%; margin-right: 8px;", onerror: "iconError"},
                 {name: "PackageTitle", style: "display: inline-block; position: absolute;", content: "Package"}
             ]
         },
         {
             kind: "Scroller",
             classes: "enyo-fill",
-            style: "padding: 10px;",
             horizontal: "hidden",
             touch: true,
             fit: true,
             components: [
                 {
-                    style: "padding: 0px 0px 70px 0px; height: 100%; width: 80%; margin: 0px auto; display: block; color: white",
+                    //padding here, not on the scroller: content narrower than the scroller
+                    //makes it slide sideways while dragging.
+                    style: "padding: 10px 12px 80px 12px; display: block; color: white",
                     fit: true,
                     components: [
                         {tag: "div", classes: "webosstyle-groupbox", components: [
@@ -175,13 +176,18 @@ enyo.kind({
                 {name: "InstallButton", kind: "onyx.Button", showing: false, content: "Install", ontap: "installTapped"},
                 {name: "UpdateButton", kind: "onyx.Button", showing: false, content: "Update", ontap: "updateTapped"},
                 {name: "RemoveButton", kind: "onyx.Button", showing: false, content: "Remove", ontap: "removeTapped"},
-                {name: "LaunchButton", kind: "onyx.Button", showing: false, content: "Launch", ontap: "launchTapped"}
+                {name: "LaunchButton", kind: "onyx.Button", showing: false, content: "Launch", ontap: "launchTapped"},
+                {name: "UnsaveButton", kind: "onyx.Button", showing: false, content: $L("Remove from Saved"), ontap: "unsaveTapped"}
             ]
         }
     ],
 
 
     //handlers:
+    iconError: function (inSender) {
+        inSender.hide();
+        return true;
+    },
     launchTapped: function () {
         this.currentPackage.launch();
     },
@@ -194,13 +200,16 @@ enyo.kind({
     removeTapped: function () {
         this.currentPackage.doRemove();
     },
+    unsaveTapped: function () {
+        this.currentPackage.unsave();
+    },
     
     /** Opens every maintainer URL found. Realistically, will there ever be more than one? */
     maintainerTap: function () {
-    	var i;
-    	for (i=0; i<this.currentPackage.maintainer.length; ++i) {
-    		if (this.currentPackage.maintainer[i].url) {
-                var mailToTarget = 'mailto:' + this.currentPackage.maintainer[i].url + '?subject=' + this.currentPackage.title;
+    	var i, maintainer = this.currentPackage.maintainer || [];
+    	for (i=0; i<maintainer.length; ++i) {
+    		if (maintainer[i].url) {
+                var mailToTarget = 'mailto:' + maintainer[i].url + '?subject=' + this.currentPackage.title;
     			this.$.openService.send({target: mailToTarget});
     		}
     	}
@@ -292,11 +301,13 @@ enyo.kind({
     },
     refreshPackageDisplay: function () {
 		this.$.PackageTitle.setContent(this.currentPackage.title);
-        this.$.PackageIcon.setSrc(this.currentPackage.icon);
+        this.$.PackageIcon.setSrc(this.currentPackage.icon || "");
+        this.$.PackageIcon.setShowing(!!this.currentPackage.icon);
         this.$.PackageDescription.setContent(this.currentPackage.description);
         this.$.PackageHomepage.setContent(this.currentPackage.homepage);
         
-        this.$.PackageMaintainer.setContent(this.currentPackage.maintainer.map(function (currentValue) {
+        //a package can come without any maintainer (false)
+        this.$.PackageMaintainer.setContent((this.currentPackage.maintainer || []).map(function (currentValue) {
         	return currentValue.url ? currentValue.name + ' (' + currentValue.url + ')': currentValue.name;
         }).join('<br><br>'));
         
@@ -370,10 +381,14 @@ enyo.kind({
     	if(this.currentPackage.hasUpdate){
     		this.$.UpdateButton.show();
     	}
+
+    	this.$.UnsaveButton.setShowing(!!this.currentPackage.isInSavedList);
     },
     
     humanFileSize: function(bytes, si) {
     	var thresh = si ? 1000 : 1024;
+    	bytes = parseFloat(bytes);
+    	if (!isFinite(bytes)) return $L("Unknown"); //e.g. installed from an app catalog, not in a feed
     	if(bytes < thresh) return bytes + ' B';
     	var units = si ? ['kB','MB','GB','TB','PB','EB','ZB','YB'] : ['KiB','MiB','GiB','TiB','PiB','EiB','ZiB','YiB'];
     	var u = -1;

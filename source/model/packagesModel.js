@@ -132,13 +132,19 @@ enyo.singleton({
             if (!payload || payload.errorCode !== undefined) {
                 // we probably dont need to check this stuff here,
                 // it would have already been checked and errored out of this process
-                if (payload.errorText === "org.webosports.service.ipkg is not running.") {
+                if (preware.IPKGService.isNotRunning(payload)) {
                     this.displayStatus({
                         error: true,
                         message: $L("The Package Manager Service is not running. Did you remember to install it? If you did, first try restarting Preware, then try rebooting your device and not launching Preware until you have a stable network connection available.")
                     });
                     setTimeout(this.doneUpdating.bind(this), 5000); //TODO: make sure that user can see the errro.
                     return;
+                } else if (num >= 0) {
+                    // A feed that could not be downloaded has no package list
+                    // (the download step has already said so): skip it, rather
+                    // than leave every feed after it unloaded.
+                    console.error("Got error, skipping feed " + this.feeds[num] + ": " + payload.errorText);
+                    doneLoading = true;
                 } else {
                     // Do not do this until we work out how to handle multiple errors.
                     //this.updateAssistant.errorMessage('Preware', payload.errorText, this.updateAssistant.doneUpdating);
@@ -396,6 +402,9 @@ enyo.singleton({
     },
 
     fixUnknownDone: function () {
+        if (this.unknownFixed >= this.unknownCount) {
+            return; //already done, ignore late responses.
+        }
         this.unknownFixed += 1;
 
         if (this.unknownFixed === this.unknownCount) {
@@ -417,6 +426,39 @@ enyo.singleton({
     //the all paths from loadFeeds lead here
     loadSaved: function () {
         this.doneLoading();   // TODO: call preware.SavedPacketlist.load with doneLoading as callback
+    },
+
+    //Makes names that differ only in case, spacing, punctuation or "&" / "and" one name,
+    //spelled the way most packages spell it. field: "category" or "type".
+    mergeNameVariants: function (field) {
+        var p, name, key, groups = {}, best = {}, spelling,
+            keyOf = function (n) {
+                return n.toLowerCase().replace(/&/g, " and ").replace(/[^a-z0-9]+/g, "");
+            };
+        for (p = 0; p < this.packages.length; p += 1) {
+            name = this.packages[p][field];
+            if (name) {
+                key = keyOf(name);
+                groups[key] = groups[key] || {};
+                groups[key][name] = (groups[key][name] || 0) + 1;
+            }
+        }
+        for (key in groups) {
+            if (groups.hasOwnProperty(key)) {
+                for (spelling in groups[key]) {
+                    if (groups[key].hasOwnProperty(spelling) &&
+                            (!best[key] || groups[key][spelling] > groups[key][best[key]])) {
+                        best[key] = spelling;
+                    }
+                }
+            }
+        }
+        for (p = 0; p < this.packages.length; p += 1) {
+            name = this.packages[p][field];
+            if (name) {
+                this.packages[p][field] = best[keyOf(name)];
+            }
+        }
     },
 
     doneLoading: function () {
@@ -453,6 +495,10 @@ enyo.singleton({
                     this.packagesReversed[this.packages[p].pkg] = p + 1;
                 }
             }
+
+            // feeds spell some names differently ("Clocks And Timers" / "Clocks and Timers")
+            this.mergeNameVariants("category");
+            this.mergeNameVariants("type");
 
             // add package categorys to global category list
             for (p = 0; p < this.packages.length; p += 1) {
@@ -517,8 +563,34 @@ enyo.singleton({
             }
         }
 
+        this.syncSavedPackages();
+
         // tell the main scene we're done updating
         this.doneUpdating();
+    },
+
+    //Saved Package List: the first time packages are ever loaded, snapshot what's
+    //currently installed (like the original Preware's device-reflash backup). After
+    //that the saved list only changes when the user removes something from it
+    //(PackageModel#unsave) - it stays a fixed record of "what I had installed",
+    //not a live mirror of the installed set.
+    syncSavedPackages: function () {
+        var p, pkg, savedIds;
+        if (!preware.PrefCookie.get().savedPackagesTaken) {
+            savedIds = [];
+            for (p = 0; p < this.packages.length; p += 1) {
+                pkg = this.packages[p];
+                if (pkg.isInstalled && (!pkg.appCatalog || preware.PrefCookie.get().useTuckerbox)) {
+                    savedIds.push(pkg.pkg);
+                }
+            }
+            preware.PrefCookie.put("savedPackages", savedIds);
+            preware.PrefCookie.put("savedPackagesTaken", true);
+        }
+        savedIds = preware.PrefCookie.get().savedPackages;
+        for (p = 0; p < this.packages.length; p += 1) {
+            this.packages[p].isInSavedList = savedIds.indexOf(this.packages[p].pkg) !== -1;
+        }
     },
 
     //============================= multi package operations
@@ -663,12 +735,15 @@ enyo.singleton({
                 }
 
                 if (this.multiFlags.RestartLuna || this.multiFlags.RestartJava || this.multiFlags.RestartDevice) {
-                    console.error("assistant.actionMessage not yet replaced, logging instead");
-                    console.log(
-                        $L("Packages installed:<br /><br />") + this.multiActionMessage(this.multiFlags)
-                        //[{label:$L("Ok"), value:'ok'}, {label:$L("Later"), value:'skip'}],
-                        //this.multiActionFunction.bindAsEventListener(this, this.multiFlags)
-                    );
+                    this.doSimpleMessage($L("Packages installed"));
+                    enyo.Signals.send("onPackageActionRequired", {
+                        message: $L("Packages installed:<br /><br />") + this.multiActionMessage(this.multiFlags),
+                        callback: this.multiActionFunction.bind(this, this.multiFlags)
+                    });
+                    this.multiPkg    = false;
+                    this.multiPkgs    = false;
+                    this.multiFlags    = false;
+                    this.doMyApps        = false;
                     return;
                 } else {
                     // we run this anyways to get the rescan
@@ -758,21 +833,30 @@ enyo.singleton({
         }
     },
 
+    //result of the restart question after a multi install.
+    multiActionFunction: function (flags, value) {
+        if (value === 'ok') {
+            this.multiRunFlags(flags);
+        } else if (!preware.PrefCookie.get().avoidBugs) {
+            preware.IPKGService.rescan(function () {});
+        }
+    },
+
     //called in the end of an action. Triggers restarts and so on and also a rescann.
     multiRunFlags: function (flags) {
         try {
             if ((flags.RestartLuna && flags.RestartJava) || flags.RestartDevice) {
-                IPKGService.restartdevice(function () {});
+                preware.IPKGService.restartDevice(function () {});
             }
             if (flags.RestartJava && !flags.RestartLuna) {
-                IPKGService.restartjava(function () {});
+                preware.IPKGService.restartJava(function () {});
             }
             if (flags.RestartLuna && !flags.RestartJava) {
-                IPKGService.restartluna(function () {});
+                preware.IPKGService.restartLuna(function () {});
             }
             // this is always ran...
             if (!preware.PrefCookie.get().avoidBugs) {
-                IPKGService.rescan(function () {});
+                preware.IPKGService.rescan(function () {});
             }
         } catch (e) {
             console.error('packagesModel#multiRunFlags: ' + e);

@@ -14,6 +14,8 @@ enyo.kind({
     scrim: true,
     scrimWhenModal: false,
     ipkOperation: false,
+    //another app started Preware just for this install: after it, Close closes Preware.
+    closesApp: false,
     components: [
         {
             kind: "enyo.Panels",
@@ -38,6 +40,8 @@ enyo.kind({
 								]},                			
                 			]},
                 		]},
+                		//package id and version, read from the file name
+                		{name: "ipkSummary", allowHtml: true, showing: false, style: "color: white; margin: 0 0 12px 10px; line-height: 22px;"},
                 		{ kind: "onyx.Button", content: $L("Browse"), style:"width: 100%;", classes: "onyx-dark", ontap: "browseFiles" },
                         {name: "getInfoButton", kind: "onyx.Button", content: $L("Get Info"), style:"width: 100%; margin-top: 5px;", classes: "onyx-dark", ontap: "getInfo", disabled: true },
                         {name: "installButton", kind: "onyx.Button", content: $L("Install"), style:"width: 100%; margin-top: 5px;", classes: "onyx-dark", ontap: "install", disabled: true },
@@ -80,7 +84,7 @@ enyo.kind({
                     style: "border-radius: 8px;",
                     components: [
                         {kind: "enyo.FittableColumns", style: "width: 100%; background-color: #383838; border-radius: 8px 8px 0 0; padding: 5px;", components: [
-                        	{name: "pkgInfoIcon", tag: "img", style: "width: 48px; height: 48px;"},
+                        	{name: "pkgInfoIcon", kind: "Image", style: "width: 48px; height: 48px;", onerror: "infoIconError"},
                         	{name: "pkgInfoTitle", tag: "span", style: "position: relative; top: -10; color: #ffffff; padding-left: 10px; font-size: 28px;", content: "Hello World"},
                         ]},
                         {
@@ -196,8 +200,25 @@ enyo.kind({
     },
     doInstall: function (installUrl) {
         enyo.warn("In InstallPackageDialog: " + installUrl);
+        //Opened with a package (e.g. by an app catalog): show it, ready to install,
+        //like the original Preware did. No automatic "Get Info": that downloads the
+        //whole package just to read its details (a minute for a big game), and Install
+        //downloads it again.
+        this.$.Panels.setIndex(this.selectPanelIndex);
         this.$.ipkEdit.setValue(installUrl);
         this.validatePackageLocation();
+    },
+    //show the package id and version, when the file name follows <id>_<version>_<arch>.ipk
+    updateSummary: function () {
+        var name = decodeURIComponent(this.$.filePicker.getFileName(this.$.ipkEdit.getValue() || "")),
+            match = /^([^_\/]+)_([^_\/]+)_[^_\/]+\.ipk$/i.exec(name);
+        if (match) {
+            this.$.ipkSummary.setContent($L("Package: ") + enyo.dom.escape(match[1]) + "<br>" + $L("Version: ") + enyo.dom.escape(match[2]));
+        }
+        if (this.$.ipkSummary.showing !== !!match) {
+            this.$.ipkSummary.setShowing(!!match);
+            this.$.selectPanel.resize(); //keep the Close button in view
+        }
     },
     //handlers
     handleBackGesture: function (inSender, inEvent) {
@@ -221,12 +242,17 @@ enyo.kind({
     },
     backFromSpinner: function (inSender, inEvent) {
         if (!this.ipkOperation) {
+            if (inSender === this.$.spinnerBackBtn && this.closesApp) {
+                this.closePopup(); //closes Preware too (App.installDialogHidden)
+                return;
+            }
             this.$.Panels.setIndex(this.selectPanelIndex);
         }
     },
     closePopup: function (inSender, inEvent) {
         if (!this.ipkOperation) {
 			this.$.ipkEdit.setValue("");
+			this.$.ipkSummary.hide();
 			this.$.getInfoButton.setDisabled(true);
 			this.$.installButton.setDisabled(true);
             this.hide();
@@ -246,6 +272,7 @@ enyo.kind({
         this.$.message.setContent("Getting info for " + this.filename);
         this.originalMessage = "Getting info for " + this.filename;
         this.ipkOperation = true;
+        this.$.spinner.show();
         this.$.spinnerBackBtn.hide();
     },
     install: function (inSender, inEvent) {
@@ -260,6 +287,7 @@ enyo.kind({
         this.originalMessage = "Installing " + packageId;
         packageModel.doInstall();
         this.ipkOperation = true;
+        this.$.spinner.show();
         this.$.spinnerBackBtn.hide();
     },
     handleSelect: function (inSender, inEvent) {
@@ -273,6 +301,7 @@ enyo.kind({
         }
     },
 	validatePackageLocation: function (inSender, inEvent) {
+		this.updateSummary();
 		if (this.$.ipkEdit.getValue() != "")
 		{
 			this.$.getInfoButton.setDisabled(false);
@@ -312,9 +341,15 @@ enyo.kind({
         }
     },
     
+    infoIconError: function (inSender) {
+        inSender.hide();
+        return true;
+    },
     installDone: function (inSender, inEvent) {
         this.$.message.setContent(this.originalMessage + "<br /><bold>Done:</bold> " + inEvent.message);
         this.ipkOperation = false;
+        this.$.spinner.hide();
+        this.$.spinnerBackBtn.setContent(this.closesApp ? $L("Close") : $L("Back"));
         this.$.spinnerBackBtn.show();
     },
     
@@ -332,10 +367,8 @@ enyo.kind({
         	this.$.pkgInfoTitle.setContent("N/A");
         }
         
-        if (infoObj.Icon)
-        {
-        	this.$.pkgInfoIcon.setSrc(infoObj.Icon);
-        }
+        this.$.pkgInfoIcon.setSrc(infoObj.Icon || "");
+        this.$.pkgInfoIcon.setShowing(!!infoObj.Icon);
         
         if (infoObj.Description)
         {

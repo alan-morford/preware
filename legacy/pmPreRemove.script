@@ -1,0 +1,45 @@
+#!/bin/sh
+
+# Preware 2 on legacy webOS: remove the package manager service, unless the
+# original Preware (which uses the same service) stays installed.
+# The feed configuration is left alone, it is shared with the original Preware.
+
+SID="org.webosinternals.ipkgservice"
+
+# Handle execution as pmPreRemove.script
+if [ -z "$IPKG_OFFLINE_ROOT" ]; then
+  IPKG_OFFLINE_ROOT=/media/cryptofs/apps
+  mount -o remount,rw /
+fi
+
+APPS=/media/cryptofs/apps
+
+[ -d $APPS ] || { echo "Requires webOS 1.3.5 or later" ; exit 1 ; }
+
+# Remove the boot-time service check of Preware 2
+rm -f /var/palm/event.d/preware2-service-check
+
+if [ ! -f ${APPS}/usr/palm/applications/org.webosinternals.preware/appinfo.json -a \
+     ! -f ${APPS}/usr/palm/applications/org.webosinternals.preware-alpha/appinfo.json ] ; then
+
+  # Remove the ipkgservice executable
+  rm -f /var/usr/sbin/${SID}
+
+  # Remove the dbus service
+  rm -f /var/palm/system-services/${SID}.service
+
+  # Remove the ls2 roles
+  rm -f /var/palm/ls2/roles/prv/${SID}.json /var/palm/ls2/roles/pub/${SID}.json
+
+  # Don't stop the service, it may be needed to remove this package.
+
+  # Remove the upstart script
+  rm -f /var/palm/event.d/${SID}
+
+  # Remove all list database cache files
+  rm -f $APPS/usr/lib/ipkg/lists/*
+  rm -f $APPS/usr/lib/ipkg/cache/*
+
+fi
+
+exit 0
