@@ -1783,6 +1783,11 @@ static appinstaller_result appinstaller_follow(LSMessage *message, const char *m
   close(fds[1]);
 
   FILE *fp = fdopen(fds[0], "r");
+  // Unbuffered, so that select() below sees every line not yet handled: a
+  // buffered fgets() can read several of appinstalld's messages at once,
+  // leaving the rest (the final state among them) in the FILE buffer while
+  // select() waits on the pipe for more, until the idle timeout.
+  if (fp) setvbuf(fp, NULL, _IONBF, 0);
   char line[MAXLINLEN];
 
   while (fp && !finished) {
