@@ -64,10 +64,6 @@ rm -f $APPS/etc/ipkg/precentral.conf
 # Install backup webosnation feed
 echo "src/gz precentral http://weboslives.eu/feeds/precentral" > $APPS/etc/ipkg/precentral-weboslives.conf
 
-# Install App Museum feed. Its own feed name: under "precentral", like the feed
-# above, each would overwrite the other's package list.
-echo "src/gz appmuseum http://weboslives.eu/feeds/wosa" > $APPS/etc/ipkg/wosa-appmuseum.conf
-
 # Install PreCentral theme feed
 echo "src/gz precentral-themes http://ipkg.preware.net/feeds/precentral-themes" > $APPS/etc/ipkg/precentral-themes.conf
 
