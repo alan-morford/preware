@@ -64,21 +64,7 @@ enyo.kind({
                             ]
                         },
                         //bubble doSettings and doManageFeeds events to parent.
-                        {kind: "preware.PackagesMenu", name: "packagesMenu", onSelected: "packagesMenuSelected"},
-                        //search results, shown below the search box.
-                        {
-                            name: "SearchScroller",
-                            kind: "Scroller",
-                            horizontal: "hidden",
-                            style: "background-image:url('assets/bg.png')",
-                            touch: true,
-                            components: [
-                                {name: "NoSearchResults", showing: false, style: "color: white; text-align: center; padding: 24px;", content: $L("No packages found")},
-                                {name: "SearchRepeater", kind: "Repeater", onSetupItem: "setupSearchItem", count: 0, components: [
-                                    {kind: "ListItem", title: "[package]", icon: true, ontap: "searchResultTapped"}
-                                ]}
-                            ]
-                        }
+                        {kind: "preware.PackagesMenu", name: "packagesMenu", onSelected: "packagesMenuSelected"}
                     ]
                 },
                 {kind: "onyx.Toolbar"}
@@ -185,6 +171,31 @@ enyo.kind({
                         },
                         {kind: "GrabberToolbar"}
                     ]
+                },
+                //search results: in this column, so the menu stays visible next to them.
+                {
+                    kind: "FittableRows",
+                    components: [
+                        {kind: "onyx.Toolbar", components: [
+                            {style: "display: inline-block; position: absolute;", content: $L("Search Results")}
+                        ]},
+                        {
+                            name: "SearchScroller",
+                            kind: "Scroller",
+                            horizontal: "hidden",
+                            classes: "enyo-fill",
+                            style: "background-image:url('assets/bg.png')",
+                            touch: true,
+                            fit: true,
+                            components: [
+                                {name: "NoSearchResults", showing: false, style: "color: white; text-align: center; padding: 24px;", content: $L("No packages found")},
+                                {name: "SearchRepeater", kind: "Repeater", onSetupItem: "setupSearchItem", count: 0, components: [
+                                    {kind: "ListItem", title: "[package]", icon: true, ontap: "searchResultTapped"}
+                                ]}
+                            ]
+                        },
+                        {kind: "GrabberToolbar"}
+                    ]
                 }
             ]
         },
@@ -251,18 +262,14 @@ enyo.kind({
     //ColumnPanels: hide the panels that are not on the way to the current one.
     isPanelSkipped: function (index) {
         if (index === this.typePanelsIndex || index === this.categoryPanelsIndex) {
-            return !this.showingTypeAndCategoriesPanels || this.displayFromSearch;
-        }
-        if (index === this.packagePanelsIndex) {
-            return this.displayFromSearch;
+            return !this.showingTypeAndCategoriesPanels || this.isSearching();
         }
         return false;
     },
     handleBackGesture: function (inSender, inEvent) {
         var index = this.getIndex();
-        if (this.displayFromSearch && index === this.packageDisplayPanelsIndex) { //back to the search results.
-            this.displayFromSearch = false;
-            this.setIndex(this.menuPanelsIndex);
+        if (this.isSearching() && index === this.packageDisplayPanelsIndex) { //back to the search results.
+            this.setIndex(this.packagePanelsIndex);
         } else if (this.isSearching()) { //leave the search, back to where it started.
             this.endSearch();
         } else if (!this.showingTypeAndCategoriesPanels && index === this.categoryPanelsIndex + 1) { //mind the gap.
@@ -281,7 +288,7 @@ enyo.kind({
             return; //already loading.
         }
         this.searchHeader.set("disabled", true);
-        this.searchHeader.clear();
+        this.cancelSearch();
         this.$.spinner.show();
         UpdateFeeds.startUpdateFeeds(true);
         this.$.ScrollerPanel.setIndex(0);
@@ -294,7 +301,7 @@ enyo.kind({
         }
         this.setIndex(this.menuPanelsIndex);
         this.searchHeader.set("disabled", true);
-        this.searchHeader.clear();
+        this.cancelSearch();
         this.$.spinner.show();
         this.$.ScrollerPanel.setIndex(0);
         UpdateFeeds.startUpdateFeeds(false, true);
@@ -322,6 +329,8 @@ enyo.kind({
     },
     //react to package selection in packagesMenu.
     packagesMenuSelected: function (inSender, inEvent) {
+        //the menu stays visible during a search: picking a list from it leaves the search.
+        this.cancelSearch();
         this.showTypeAndCategoriesPanels(inEvent.showTypeAndCategoriesPanels);
 
         if (inEvent.typesLength >= 0) {
@@ -393,25 +402,36 @@ enyo.kind({
         enyo.job("preware-search", this.doSearch.bind(this, inEvent.value || ""), 300);
         return true;
     },
-    //search results are shown (in the menu panel).
+    //search results are shown (in the package list column, card 2).
     isSearching: function () {
-        return this.$.ScrollerPanel.getIndex() === 2;
+        return this.$.PackagePanels.getIndex() === 2;
+    },
+    //leave the search without moving to another panel (the caller does that).
+    cancelSearch: function () {
+        var card = this.packageCardBeforeSearch || 0;
+        this.searchHeader.clear();
+        if (this.isSearching()) {
+            this.$.PackagePanels.setIndex(card);
+        }
+        this.searchOpenedPackage = false;
+        this.indexBeforeSearch = null;
+        return card;
     },
     //clear the search and go back to the panel shown when it started.
     endSearch: function () {
-        var index = this.indexBeforeSearch || this.menuPanelsIndex;
-        this.searchHeader.clear();
+        var index = this.indexBeforeSearch || this.menuPanelsIndex,
+            openedPackage = this.searchOpenedPackage,
+            card = this.cancelSearch();
         this.searchHeader.blur();
-        this.$.ScrollerPanel.setIndex(1);
-        if (this.searchOpenedPackage && index === this.packageDisplayPanelsIndex) {
+        if (openedPackage && index === this.packageDisplayPanelsIndex) {
             //the package details now show a search result: go to the list before them.
-            index = this.packagePanelsIndex;
+            index = card === 1 ? this.packagePanelsIndex : this.menuPanelsIndex;
         }
-        this.displayFromSearch = false;
-        this.searchOpenedPackage = false;
-        this.indexBeforeSearch = null;
         this.setIndex(index);
     },
+    //Emptying the field does nothing: the results stay until a new search (Enter)
+    //or back. Ending the search here re-laid out the columns, which took the focus
+    //(and the virtual keyboard) away from the field while the user was typing.
     doSearch: function (text) {
         var i, pkg, searchDesc = preware.PrefCookie.get().searchDesc;
         if (this.$.ScrollerPanel.getIndex() === 0) {
@@ -419,13 +439,11 @@ enyo.kind({
         }
         text = text.toLowerCase().trim();
         if (!text) {
-            if (this.isSearching()) {
-                this.endSearch();
-            }
             return;
         }
         if (!this.isSearching()) {
             this.indexBeforeSearch = this.getIndex();
+            this.packageCardBeforeSearch = this.$.PackagePanels.getIndex();
         }
         this.searchResults = [];
         for (i = 0; i < preware.PackagesModel.packages.length; i += 1) {
@@ -440,11 +458,9 @@ enyo.kind({
         });
         this.$.SearchRepeater.setCount(this.searchResults.length);
         this.$.NoSearchResults.setShowing(this.searchResults.length === 0);
-        this.$.ScrollerPanel.setIndex(2);
+        this.$.PackagePanels.setIndex(2);
         this.$.SearchScroller.scrollToTop();
-        if (!(this.isColumnMode && this.isColumnMode())) {
-            this.setIndex(this.menuPanelsIndex); //results are shown in the menu panel.
-        }
+        this.setIndex(this.packagePanelsIndex);
     },
     setupSearchItem: function (inSender, inEvent) {
         var pkg = this.searchResults[inEvent.index];
@@ -458,13 +474,11 @@ enyo.kind({
         this.searchOpenedPackage = true;
         this.markSelected("list", inEvent);
         this.$.packageDisplay.setCurrentPackage(this.searchResults[inEvent.index]);
-        this.displayFromSearch = true;
         this.$.PackageDisplayPanels.setIndex(1);
         this.setIndex(this.packageDisplayPanelsIndex);
     },
     packageTapped: function (inSender, inEvent) {
         this.markSelected("list", inEvent);
-        this.displayFromSearch = false;
         this.$.packageDisplay.setCurrentPackage(this.$.packagesMenu.getPackage(inEvent.index));
 
         this.$.PackageDisplayPanels.setIndex(1);
