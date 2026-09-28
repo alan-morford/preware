@@ -129,14 +129,20 @@ enyo.kind({
         {
             name: "SimpleMessage",
             kind: "Toast",
-            style: "height: 90px;",
+            //as tall as the message: an install error can be several lines
+            style: "height: auto;",
+            //its own layer, like the scroller in it: the TouchPad's WebKit does not
+            //draw a scrolling layer inside a moving one that is not.
+            accelerated: true,
             components: [
-                {
-                    name: "SimpleMessageContent",
-                    style: "display: block; font-size: 14pt; height: 32px;",
-                    allowHtml: true,
-                    content: "Message<br>I am a fish."
-                },
+                {name: "SimpleMessageScroller", kind: "enyo.Scroller", horizontal: "hidden", touch: true, maxHeight: "220px", components: [
+                    {
+                        name: "SimpleMessageContent",
+                        style: "display: block; font-size: 14pt; white-space: normal; word-wrap: break-word;",
+                        allowHtml: true,
+                        content: "Message<br>I am a fish."
+                    }
+                ]},
                 {kind: "onyx.Button", style: "display: block; width: 100%; margin-top: 4px;", content: "OK", ontap: "hideSimpleMessage"}
             ]
         },
@@ -191,6 +197,8 @@ enyo.kind({
 
     //handlers:
     iconError: function (inSender) {
+        //remembered: setting the same src again does not fire another error
+        this.failedIcon = inSender.getSrc();
         inSender.hide();
         return true;
     },
@@ -260,6 +268,7 @@ enyo.kind({
         this.hideActionMessage();
 
         this.$.SimpleMessageContent.setContent(inMessage);
+        this.$.SimpleMessageScroller.setScrollTop(0);
         if (this.$.SimpleMessage.value !== this.$.SimpleMessage.min) {
             this.$.SimpleMessage.animateToMin();
         }
@@ -323,7 +332,7 @@ enyo.kind({
     refreshPackageDisplay: function () {
 		this.$.PackageTitle.setContent(this.currentPackage.title);
         this.$.PackageIcon.setSrc(this.currentPackage.icon || "");
-        this.$.PackageIcon.setShowing(!!this.currentPackage.icon);
+        this.$.PackageIcon.setShowing(!!this.currentPackage.icon && this.currentPackage.icon !== this.failedIcon);
         this.$.PackageDescription.setContent(this.currentPackage.description);
         this.$.PackageHomepage.setContent(this.currentPackage.homepage);
         
