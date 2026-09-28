@@ -172,6 +172,9 @@ enyo.kind({
             kind: "GrabberToolbar",
             //style: "position: absolute; bottom: 0; width: 100%;",
             style: "position: relative;",
+            //no grabber here: it covered the first button. The list is next to the
+            //details, or the back gesture goes back.
+            showGrabber: false,
             components: [
                 {name: "InstallButton", kind: "onyx.Button", showing: false, content: "Install", ontap: "installTapped"},
                 {name: "UpdateButton", kind: "onyx.Button", showing: false, content: "Update", ontap: "updateTapped"},
