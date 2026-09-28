@@ -143,7 +143,7 @@ enyo.kind({
                         content: "Message<br>I am a fish."
                     }
                 ]},
-                {kind: "onyx.Button", style: "display: block; width: 100%; margin-top: 4px;", content: "OK", ontap: "hideSimpleMessage"}
+                {kind: "onyx.Button", classes: "onyx-blue", style: "display: block; width: 100%; margin-top: 4px;", content: "OK", ontap: "hideSimpleMessage"}
             ]
         },
         {
@@ -185,7 +185,7 @@ enyo.kind({
                 {name: "InstallButton", kind: "onyx.Button", classes: "onyx-affirmative", showing: false, content: "Install", ontap: "installTapped"},
                 {name: "UpdateButton", kind: "onyx.Button", classes: "onyx-affirmative", showing: false, content: "Update", ontap: "updateTapped"},
                 {name: "RemoveButton", kind: "onyx.Button", showing: false, content: "Remove", ontap: "removeTapped"},
-                {name: "LaunchButton", kind: "onyx.Button", showing: false, content: "Launch", ontap: "launchTapped"}
+                {name: "LaunchButton", kind: "onyx.Button", classes: "onyx-blue", showing: false, content: "Launch", ontap: "launchTapped"}
             ]
         },
         //Remove of an installed package that is also in the Saved Package List.
