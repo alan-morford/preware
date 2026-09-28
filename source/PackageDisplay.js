@@ -182,8 +182,8 @@ enyo.kind({
             //details, or the back gesture goes back.
             showGrabber: false,
             components: [
-                {name: "InstallButton", kind: "onyx.Button", showing: false, content: "Install", ontap: "installTapped"},
-                {name: "UpdateButton", kind: "onyx.Button", showing: false, content: "Update", ontap: "updateTapped"},
+                {name: "InstallButton", kind: "onyx.Button", classes: "onyx-affirmative", showing: false, content: "Install", ontap: "installTapped"},
+                {name: "UpdateButton", kind: "onyx.Button", classes: "onyx-affirmative", showing: false, content: "Update", ontap: "updateTapped"},
                 {name: "RemoveButton", kind: "onyx.Button", showing: false, content: "Remove", ontap: "removeTapped"},
                 {name: "LaunchButton", kind: "onyx.Button", showing: false, content: "Launch", ontap: "launchTapped"}
             ]
